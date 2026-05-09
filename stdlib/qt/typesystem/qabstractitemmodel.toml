@@ -1,0 +1,28 @@
+# Typesystem for `stdlib/qt/qabstractitemmodel.qpi`. QAbstractItemModel
+# is the Q_OBJECT base of every model class (QAbstractListModel,
+# QAbstractTableModel, QStandardItemModel, QFileSystemModel, and
+# Cute's own QRangeModel-via-ModelList<T>).
+#
+# Bound minimally — the read-only API (rowCount / columnCount /
+# headerData / data) is what most user code touches; the
+# write/structural-change API (insertRows, removeRows, beginInsertRows,
+# ...) stays out unless a typesystem author asks for it.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}"]
+std = "c++17"
+
+[[classes]]
+name = "QAbstractItemModel"
+kind = "object"
+header = "${qt_core}/qabstractitemmodel.h"
+comment = """
+QAbstractItemModel — Q_OBJECT base of every Qt model class. Bound
+minimally (no insertRows / removeRows write API) because most
+user code lets a concrete subclass — QStandardItemModel,
+QFileSystemModel, or Cute's own QRangeModel-via-ModelList<T> —
+do the heavy lifting and just reads through the model from a
+QListView / QTreeView / QTableView.
+"""
+include = ["rowCount", "columnCount"]

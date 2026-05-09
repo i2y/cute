@@ -1,0 +1,176 @@
+# Cute on Kirigami — a reading-list dashboard.
+#
+# Showcases an end-to-end stack of Cute features rendered through
+# real KDE Frameworks 6 widgets:
+#
+#   - A `Book` QObject with property/signal/slot for live state
+#     (page count advances on click → ProgressBar + percent label
+#     re-bind via the notify signal).
+#   - Multiple `view` declarations, with one parameterised by the
+#     class type (`view BookCard(book: Book)` — methods called on
+#     the parameter Just Work).
+#   - String-format spec `#{r:.1%}` for the live percent label.
+#   - Element-as-value for `pageStack.initialPage:` (Kirigami's
+#     standard pattern for adding a page to the ApplicationWindow's
+#     PageRow stack).
+#   - Kirigami: ApplicationWindow, ScrollablePage, Heading.
+
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "org.kde.kirigami" as Kirigami
+
+# A single book in the reading list. QObject so QML binds to
+# property changes on `page` and re-renders the progress bar +
+# percent label automatically.
+
+pub class Book {
+  pub prop title : String, default: ""
+  pub prop author : String, default: ""
+  # `page`'s notify is named `progressChanged` (not `pageChanged`)
+  # because the surface contract is "progress moved" — keep the
+  # explicit notify so QML can bind on the meaningful name.
+  pub prop page : Int, notify: :progressChanged, bindable, default: 0
+  pub prop total : Int, bindable, default: 0
+  pub signal progressChanged
+
+  # Derived: percent read. The Qt 6 binding system tracks `page`
+  # and `total` (both `bindable`) automatically, so no manual
+  # `emit` is needed when either changes.
+  pub prop ratio : Float, bind { (1.0 * page) / total }
+
+  pub fn advance {
+    if page < total {
+      page = page + 1
+    }
+  }
+
+  pub fn rewind {
+    if page > 0 {
+      page = page - 1
+    }
+  }
+}
+
+# A single book card. Takes the Book object directly so the buttons
+# can call methods on it (`book.advance()`); QML auto-binds property
+# reads through the QObject's metaobject.
+
+view BookCard(book: Book) {
+  Rectangle {
+    color: "#ffffff"
+    border.color: "#e0e0e0"
+    border.width: 1
+    radius: 10
+    height: 175
+    width: 660
+
+    Column {
+      anchors.fill: parent
+      anchors.margins: 16
+      spacing: 8
+
+      Label {
+        text: book.title
+        color: "#212121"
+        font.pixelSize: 18
+        font.bold: true
+      }
+      Label {
+        text: "by " + book.author
+        color: "#616161"
+        opacity: 0.85
+        font.italic: true
+      }
+      Row {
+        spacing: 12
+        ProgressBar {
+          from: 0
+          to: book.total
+          value: book.page
+          width: 320
+        }
+        Label {
+          # `book.ratio` is a computed Q_PROPERTY backed by a
+          # QObjectComputedProperty — auto-tracks `page` / `total`.
+          text: book.page + " / " + book.total + " (#{book.ratio:.1%})"
+          opacity: 0.7
+        }
+      }
+      Row {
+        spacing: 8
+        Button {
+          text: "← rewind"
+          onClicked: book.rewind()
+        }
+        Button {
+          text: "advance →"
+          highlighted: true
+          onClicked: book.advance()
+        }
+      }
+    }
+  }
+}
+
+view Main {
+  Kirigami.ApplicationWindow {
+    title: "Cute Reading List"
+    width: 760
+    height: 720
+    visible: true
+
+    # Three Book QObjects as inline state with QML ids.  The cards
+    # below project their state into the UI and pipe button presses
+    # back to the model via the `book.advance()` / `book.rewind()`
+    # methods.
+    Book {
+      id: pragprog
+      title: "The Pragmatic Programmer"
+      author: "Hunt & Thomas"
+      page: 145
+      total: 320
+    }
+    Book {
+      id: ddd
+      title: "Domain-Driven Design"
+      author: "Eric Evans"
+      page: 89
+      total: 512
+    }
+    Book {
+      id: ddia
+      title: "Designing Data-Intensive Applications"
+      author: "Martin Kleppmann"
+      page: 412
+      total: 590
+    }
+
+    pageStack.initialPage: Kirigami.ScrollablePage {
+      title: "Currently reading"
+
+      Column {
+        spacing: 16
+        width: 700
+
+        Kirigami.Heading {
+          level: 1
+          text: "My Reading List"
+        }
+
+        # Live aggregate progress. The label re-renders whenever
+        # any of the three Book.page properties change — QML's
+        # binding system propagates the change to `text` because
+        # the expression references `pragprog.page` etc.
+        Label {
+          text: "#{pragprog.page + ddd.page + ddia.page} of #{pragprog.total + ddd.total + ddia.total} pages read (#{(1.0 * (pragprog.page + ddd.page + ddia.page)) / (pragprog.total + ddd.total + ddia.total):.1%})"
+          font.pixelSize: 16
+          opacity: 0.8
+        }
+
+        BookCard { book: pragprog }
+        BookCard { book: ddd }
+        BookCard { book: ddia }
+      }
+    }
+  }
+}

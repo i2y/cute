@@ -1,0 +1,68 @@
+# Typesystem for `stdlib/qt/qtmultimedia.qpi`. QtMultimedia
+# audio / video playback primitives — QMediaPlayer drives
+# playback and emits state-change signals; QAudioOutput is the
+# audio sink; QVideoSink is the video destination (wires up to a
+# QML VideoOutput or QGraphicsVideoItem).
+#
+# Linking still requires `Qt6 COMPONENTS Multimedia` in
+# cute.toml under [cmake]; the typesystem only describes the
+# type surface.
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_multimedia}"]
+std = "c++17"
+
+[[classes]]
+name = "QMediaPlayer"
+kind = "object"
+header = "${qt_multimedia}/qmediaplayer.h"
+comment = """
+QMediaPlayer — audio + video playback. Wire it to a QAudioOutput
+sink (audio) and a QVideoSink (video). state / position / duration
+signals report progress; setSource starts loading a file or URL.
+"""
+include = ["play", "pause", "stop", "setSource", "setAudioOutput", "setVideoSink", "setPosition"]
+
+[[classes]]
+name = "QAudioOutput"
+kind = "object"
+header = "${qt_multimedia}/qaudiooutput.h"
+comment = """
+QAudioOutput — audio sink. Pair with a QMediaPlayer via
+setAudioOutput. The volume / muted properties propagate to the
+underlying device.
+"""
+include = []
+
+[[classes]]
+name = "QVideoSink"
+kind = "object"
+header = "${qt_multimedia}/qvideosink.h"
+comment = """
+QVideoSink — video destination. Receives QVideoFrames from a
+QMediaPlayer or QCamera and forwards them to a QML VideoOutput
+or QGraphicsVideoItem.
+"""
+include = []
+
+[[classes]]
+name = "QCamera"
+kind = "object"
+header = "${qt_multimedia}/qcamera.h"
+comment = """
+QCamera — camera device wrapper. Hooks into a QMediaCaptureSession
+which can route the feed to a QMediaRecorder (file output) or
+QVideoSink (live preview).
+"""
+include = ["start", "stop"]
+
+[[classes]]
+name = "QMediaRecorder"
+kind = "object"
+header = "${qt_multimedia}/qmediarecorder.h"
+comment = """
+QMediaRecorder — record audio / video to a file. Wire to a
+QMediaCaptureSession; the actual capture sources (QCamera /
+QAudioInput) are owned by the session.
+"""
+include = ["record", "stop", "pause"]

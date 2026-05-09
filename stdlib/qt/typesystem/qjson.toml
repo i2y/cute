@@ -1,0 +1,56 @@
+# QtCore JSON: QJsonDocument / QJsonObject / QJsonArray / QJsonValue.
+# Auto-generated binding for Qt 6's JSON parsing surface — handcraft
+# previously had nothing, so any program needing to read/write JSON
+# had to drop to inline C++. This typesystem covers the common
+# reading shape (`QJsonDocument::fromJson(bytes).object().value("k")`)
+# and the common writing shape (`doc.toJson(Compact)`).
+
+[clang]
+includes = []
+std = "c++17"
+
+[type_map]
+"qsizetype" = "Int"
+"long" = "Int"
+"qlonglong" = "Int"
+"QStringList" = "QStringList"
+
+[[classes]]
+name = "QJsonValue"
+header = "${qt_core}/qjsonvalue.h"
+include = [
+  "isNull", "isBool", "isDouble", "isString",
+  "isArray", "isObject", "isUndefined",
+  "type", "toBool", "toInt", "toDouble", "toString",
+  "toArray", "toObject", "toVariant",
+]
+
+[[classes]]
+name = "QJsonObject"
+header = "${qt_core}/qjsonobject.h"
+include = [
+  "size", "count", "isEmpty",
+  "keys", "contains", "value",
+  "remove",
+]
+
+[[classes]]
+name = "QJsonArray"
+header = "${qt_core}/qjsonarray.h"
+include = [
+  "size", "count", "isEmpty",
+  "at", "first", "last",
+  "contains",
+]
+
+[[classes]]
+name = "QJsonDocument"
+header = "${qt_core}/qjsondocument.h"
+include = [
+  "isEmpty", "isArray", "isObject", "isNull",
+  "object", "array",
+  "setObject", "setArray",
+  "toJson", "toVariant",
+  "fromJson", "fromVariant",
+]
+include_statics = true

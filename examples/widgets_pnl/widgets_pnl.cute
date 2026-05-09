@@ -1,0 +1,114 @@
+# Trade P&L Calculator — QtWidgets backend.
+#
+# Same `class Position` as gpu_pnl (showcasing bindable + computed +
+# batch), rendered through native QtWidgets via Cute's `widget` DSL
+# instead of the cute_ui canvas backend.
+
+class Position {
+  pub prop symbol : String, bindable, default: "AAPL"
+  pub prop entryPrice : Float, bindable, default: 150.0
+  pub prop currentPrice : Float, bindable, default: 175.5
+  pub prop quantity : Int, bindable, default: 100
+  pub prop fees : Float, bindable, default: 12.0
+
+  pub prop costBasis : Float, bind { entryPrice * quantity }
+  pub prop marketValue : Float, bind { currentPrice * quantity }
+  pub prop grossPl : Float, bind { marketValue - costBasis }
+  pub prop netPl : Float, bind { grossPl - fees }
+  pub prop plPct : Float, bind { (netPl / costBasis) * 100.0 }
+  pub prop breakeven : Float, bind { entryPrice + (fees / quantity) }
+
+  pub fn nudgePrice(delta: Float) { currentPrice = currentPrice + delta }
+
+  pub fn loadAapl {
+    batch {
+      symbol = "AAPL"; entryPrice = 150.0; currentPrice = 175.5
+      quantity = 100;  fees = 12.0
+    }
+  }
+  pub fn loadTslaWinning {
+    batch {
+      symbol = "TSLA"; entryPrice = 200.0; currentPrice = 245.0
+      quantity = 50;   fees = 8.0
+    }
+  }
+  pub fn loadTslaLosing {
+    batch {
+      symbol = "TSLA"; entryPrice = 280.0; currentPrice = 215.0
+      quantity = 50;   fees = 8.0
+    }
+  }
+  pub fn loadBtc {
+    batch {
+      symbol = "BTC"; entryPrice = 45000.0; currentPrice = 62000.0
+      quantity = 1;   fees = 50.0
+    }
+  }
+
+  pub fn applyBull { currentPrice = entryPrice * 1.15 }
+  pub fn applyBear { currentPrice = entryPrice * 0.85 }
+  pub fn resetToEntry { currentPrice = entryPrice }
+}
+
+widget Main {
+  let pos = Position()
+
+  QMainWindow {
+    windowTitle: "Cute Trade P&L (QtWidgets)"
+
+    QVBoxLayout {
+      QLabel {
+        text: "Cute reactive — Trade P&L"
+        styleSheet: "color: #1976d2; font-size: 22px; font-weight: bold;"
+      }
+      QLabel {
+        text: "Symbol: #{pos.symbol}"
+        styleSheet: "font-size: 26px;"
+      }
+
+      QLabel { text: "── Position ──"; styleSheet: "color: #888;" }
+      QLabel { text: "Entry price : $#{pos.entryPrice:.2f}" }
+      QLabel { text: "Quantity    : #{pos.quantity}" }
+      QLabel { text: "Fees        : $#{pos.fees:.2f}" }
+
+      QLabel { text: "── Live ──"; styleSheet: "color: #888;" }
+      QLabel { text: "Current     : $#{pos.currentPrice:.2f}"; styleSheet: "font-size: 18px;" }
+
+      QHBoxLayout {
+        QPushButton { text: "−$10"; onClicked: pos.nudgePrice(-10.0) }
+        QPushButton { text: "−$1";  onClicked: pos.nudgePrice(-1.0) }
+        QPushButton { text: "+$1";  onClicked: pos.nudgePrice(1.0) }
+        QPushButton { text: "+$10"; onClicked: pos.nudgePrice(10.0) }
+      }
+
+      QLabel { text: "── Computed ──"; styleSheet: "color: #888;" }
+      QLabel { text: "Cost basis  : $#{pos.costBasis:.2f}" }
+      QLabel { text: "Market value: $#{pos.marketValue:.2f}" }
+      QLabel { text: "Gross P&L   : $#{pos.grossPl:.2f}" }
+      QLabel {
+        text: "Net P&L     : $#{pos.netPl:.2f}"
+        styleSheet: "color: #2e7d32; font-size: 26px; font-weight: bold;"
+      }
+      QLabel {
+        text: "Return %    : #{pos.plPct:.2f}%"
+        styleSheet: "color: #2e7d32; font-size: 18px;"
+      }
+      QLabel { text: "Breakeven   : $#{pos.breakeven:.4f}" }
+
+      QLabel { text: "── Scenarios ──"; styleSheet: "color: #888;" }
+      QHBoxLayout {
+        QPushButton { text: "Bull +15%";      onClicked: pos.applyBull() }
+        QPushButton { text: "Bear −15%";      onClicked: pos.applyBear() }
+        QPushButton { text: "Reset to entry"; onClicked: pos.resetToEntry() }
+      }
+
+      QLabel { text: "── Presets (atomic batch) ──"; styleSheet: "color: #888;" }
+      QHBoxLayout {
+        QPushButton { text: "AAPL";         onClicked: pos.loadAapl() }
+        QPushButton { text: "TSLA winning"; onClicked: pos.loadTslaWinning() }
+        QPushButton { text: "TSLA losing";  onClicked: pos.loadTslaLosing() }
+        QPushButton { text: "BTC";          onClicked: pos.loadBtc() }
+      }
+    }
+  }
+}

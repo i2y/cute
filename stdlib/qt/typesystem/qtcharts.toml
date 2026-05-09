@@ -1,0 +1,254 @@
+# Typesystem for `stdlib/qt/qtcharts.qpi`. The QtCharts add-on
+# module — line / scatter / spline / area / pie / bar charts plus
+# the axis types they share. Linking still requires
+# `Qt6 COMPONENTS Charts` in cute.toml under [cmake]; the
+# typesystem only describes the type surface.
+#
+# Inheritance shortcut: QChart in C++ derives from QGraphicsWidget
+# (and through that QGraphicsObject / QObject). Cute's stdlib
+# doesn't bind QGraphicsWidget, so each chart class declares
+# `super_name = "QObject"` to short-circuit the chain.
+# Same for QChartView (real super: QGraphicsView; bound super:
+# QWidget for layout-attach compatibility).
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}", "${qt_charts}"]
+std = "c++17"
+
+[type_map]
+# Chart-internal types referenced by the API surface that aren't
+# in the stdlib base. Each maps to the class name we declare
+# below; if the actual class isn't bound the typesystem reader
+# would silently drop methods that mention it.
+"QAbstractSeries" = "QAbstractSeries"
+"QXYSeries" = "QXYSeries"
+"QLineSeries" = "QLineSeries"
+"QPieSlice" = "QPieSlice"
+"QBarSet" = "QBarSet"
+"QAbstractAxis" = "QAbstractAxis"
+
+# ---- series base ----------------------------------------------------------
+
+[[classes]]
+name = "QAbstractSeries"
+kind = "object"
+header = "${qt_charts}/qabstractseries.h"
+super_name = "QObject"
+comment = """
+QAbstractSeries — base for every chart series type (line / scatter /
+spline / area / pie / bar). Carries the name / visible / opacity /
+type Q_PROPERTYs and the visibility-change signals.
+"""
+include = []
+
+# ---- xy series family -----------------------------------------------------
+
+[[classes]]
+name = "QXYSeries"
+kind = "object"
+header = "${qt_charts}/qxyseries.h"
+super_name = "QAbstractSeries"
+comment = """
+QXYSeries — base for line / spline / scatter series. Carries the
+(x, y) point list plus per-point colour / size customisation.
+"""
+include = ["append", "replace", "clear", "count", "setColor", "color"]
+
+[[classes]]
+name = "QLineSeries"
+kind = "object"
+header = "${qt_charts}/qlineseries.h"
+super_name = "QXYSeries"
+comment = """
+QLineSeries — connect-the-dots line chart series.
+"""
+include = ["setPointsVisible"]
+
+[[classes]]
+name = "QSplineSeries"
+kind = "object"
+header = "${qt_charts}/qsplineseries.h"
+super_name = "QXYSeries"
+comment = """
+QSplineSeries — smoothed line chart series (Catmull-Rom-style spline).
+"""
+include = []
+
+[[classes]]
+name = "QScatterSeries"
+kind = "object"
+header = "${qt_charts}/qscatterseries.h"
+super_name = "QXYSeries"
+comment = """
+QScatterSeries — points-only chart series.
+"""
+include = ["setMarkerSize", "markerSize"]
+
+[[classes]]
+name = "QAreaSeries"
+kind = "object"
+header = "${qt_charts}/qareaseries.h"
+super_name = "QAbstractSeries"
+comment = """
+QAreaSeries — filled area between two QLineSeries (an `upper` and
+optional `lower`). Single-line area uses the chart x-axis as the
+implicit lower bound.
+"""
+include = ["setUpperSeries", "setLowerSeries"]
+
+# ---- pie series -----------------------------------------------------------
+
+[[classes]]
+name = "QPieSlice"
+kind = "object"
+header = "${qt_charts}/qpieslice.h"
+super_name = "QObject"
+comment = """
+QPieSlice — one wedge of a pie chart. `clicked` and `hovered`
+signals fire on user interaction; the value / label / exploded
+properties drive visual presentation.
+"""
+include = []
+
+[[classes]]
+name = "QPieSeries"
+kind = "object"
+header = "${qt_charts}/qpieseries.h"
+super_name = "QAbstractSeries"
+comment = """
+QPieSeries — pie chart series. Append (label, value) pairs to
+build the chart; the returned QPieSlice can be customised
+(exploded, label-visible, etc.).
+"""
+include = ["append", "count", "sum", "setHoleSize", "setLabelsVisible", "setLabelsPosition"]
+
+# ---- bar series family ----------------------------------------------------
+
+[[classes]]
+name = "QBarSet"
+kind = "object"
+header = "${qt_charts}/qbarset.h"
+super_name = "QObject"
+comment = """
+QBarSet — one labeled column / row of values shown by a
+QBarSeries. `append(value)` extends the set in place.
+"""
+include = ["append", "count", "sum", "setColor"]
+
+[[classes]]
+name = "QBarSeries"
+kind = "object"
+header = "${qt_charts}/qbarseries.h"
+super_name = "QAbstractSeries"
+comment = """
+QBarSeries — grouped bar chart series. Append QBarSets; each set
+becomes a separate group of bars across the category axis.
+"""
+include = ["append", "remove", "count", "clear"]
+
+[[classes]]
+name = "QStackedBarSeries"
+kind = "object"
+header = "${qt_charts}/qstackedbarseries.h"
+super_name = "QBarSeries"
+comment = """
+QStackedBarSeries — bars from each set stacked on top of each other.
+"""
+include = []
+
+[[classes]]
+name = "QPercentBarSeries"
+kind = "object"
+header = "${qt_charts}/qpercentbarseries.h"
+super_name = "QBarSeries"
+comment = """
+QPercentBarSeries — stacked bars normalised to 100% so each bar
+shows the proportion contributed by each set.
+"""
+include = []
+
+# ---- axes -----------------------------------------------------------------
+
+[[classes]]
+name = "QAbstractAxis"
+kind = "object"
+header = "${qt_charts}/qabstractaxis.h"
+super_name = "QObject"
+comment = """
+QAbstractAxis — base for chart axes. Carries titleText / visible /
+labelsVisible / gridVisible / position-on-chart properties.
+"""
+include = []
+
+[[classes]]
+name = "QValueAxis"
+kind = "object"
+header = "${qt_charts}/qvalueaxis.h"
+super_name = "QAbstractAxis"
+comment = """
+QValueAxis — linear numeric axis. setRange / applyNiceNumbers
+are the usual setup primitives.
+"""
+include = ["setRange", "applyNiceNumbers"]
+
+[[classes]]
+name = "QLogValueAxis"
+kind = "object"
+header = "${qt_charts}/qlogvalueaxis.h"
+super_name = "QAbstractAxis"
+comment = """
+QLogValueAxis — logarithmic numeric axis. Tick spacing is in
+multiples of the configured base.
+"""
+include = []
+
+[[classes]]
+name = "QCategoryAxis"
+kind = "object"
+header = "${qt_charts}/qcategoryaxis.h"
+super_name = "QAbstractAxis"
+comment = """
+QCategoryAxis — axis with named ranges. Each `append(label, value)`
+extends the axis up to `value` and gives the new range a label.
+"""
+include = ["append", "count"]
+
+[[classes]]
+name = "QBarCategoryAxis"
+kind = "object"
+header = "${qt_charts}/qbarcategoryaxis.h"
+super_name = "QAbstractAxis"
+comment = """
+QBarCategoryAxis — axis with bar-style category strings (one
+position per category, no value range).
+"""
+include = ["append", "clear", "count"]
+
+# ---- chart + view ---------------------------------------------------------
+
+[[classes]]
+name = "QChart"
+kind = "object"
+header = "${qt_charts}/qchart.h"
+super_name = "QObject"
+comment = """
+QChart — the chart itself. addSeries registers a series; addAxis
++ alignment binds an axis to a side; createDefaultAxes derives
+sensible axes from the registered series. Real C++ super is
+QGraphicsWidget; bound as QObject because Cute doesn't model the
+graphics-view object tree.
+"""
+include = ["addSeries", "removeSeries", "removeAllSeries", "createDefaultAxes", "addAxis", "setTitle", "legend", "setBackgroundVisible", "setDropShadowEnabled", "setAnimationOptions"]
+
+[[classes]]
+name = "QChartView"
+kind = "object"
+header = "${qt_charts}/qchartview.h"
+super_name = "QWidget"
+comment = """
+QChartView — QWidget that renders a QChart. Real C++ super is
+QGraphicsView; bound as QWidget so layout-attach (addWidget)
+type-checks.
+"""
+include = ["setRenderHint", "setRubberBand", "setChart", "chart"]

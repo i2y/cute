@@ -1,0 +1,44 @@
+# QGuiApplication + clipboard / screen / cursor primitives. Most
+# QtWidgets / QtQuick apps already construct a QApplication or
+# QGuiApplication implicitly via Cute's runtime, but user code that
+# wants to read the clipboard or query the active screen needs the
+# surface bound for type-check.
+
+class QGuiApplication < QObject {
+  fn clipboard QClipboard
+  fn primaryScreen QScreen
+  fn screens QStringList
+  fn applicationName String
+  fn setApplicationName(name: String)
+  fn organizationName String
+  fn setOrganizationName(name: String)
+  fn applicationVersion String
+  fn setApplicationVersion(v: String)
+  fn quit
+  fn exit(code: Int)
+}
+
+# QClipboard lives in `qclipboard.qpi` (auto-generated via
+# `stdlib/qt/typesystem/qclipboard.toml`), alongside QMimeData. The
+# binding loader pulls in qclipboard.qpi unconditionally so
+# `QGuiApplication.clipboard()` still resolves.
+
+class QScreen < QObject {
+  prop name : String
+  prop manufacturer : String
+  prop model : String
+
+  fn availableSize QObject
+  fn size QObject
+  fn geometry QObject
+  fn devicePixelRatio Float
+  fn refreshRate Float
+  fn logicalDotsPerInch Float
+  fn physicalDotsPerInch Float
+}
+
+class QCursor {
+  fn shape Int
+  fn setShape(shape: Int)
+  fn pos QObject
+}

@@ -1,0 +1,16 @@
+# Reading List demo — Cute on Kirigami / KDE Frameworks 6.
+#
+# Requires KF6Kirigami installed and discoverable by CMake. The
+# `use qml "org.kde.kirigami" as Kirigami` declaration in the
+# .cute source tells the Cute compiler which binding to load and
+# what import line to emit; this file only carries the build-system
+# wiring.
+#
+# On macOS, the resulting binary additionally needs a codesign
+# step with `com.apple.security.cs.disable-library-validation`;
+# `cute build` applies this automatically when the manifest pulls
+# `KF6Kirigami`.
+
+[cmake]
+find_package = ["KF6Kirigami"]
+link_libraries = ["KF6::Kirigami"]

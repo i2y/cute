@@ -1,0 +1,88 @@
+# QPainter + supporting value/style classes (QPen, QBrush, QFont,
+# QColor, QPixmap, QImage). These are the core 2D-drawing primitives
+# used by custom-painted widgets and any code that touches Qt's
+# graphics scene. Most of these are value types in C++; bindings
+# expose them as nominal classes so type-check has surfaces to
+# resolve member calls against.
+
+# QColor lives in qvaluetypes.qpi as `extern value` (it's a plain
+# C++ value type). The richer surface is bound there.
+
+class QPen {
+  fn color QColor
+  fn setColor(c: QColor)
+  fn width Int
+  fn setWidth(w: Int)
+  fn setWidthF(w: Float)
+  fn style Int
+  fn setStyle(style: Int)
+  fn setCapStyle(style: Int)
+  fn setJoinStyle(style: Int)
+}
+
+class QBrush {
+  fn color QColor
+  fn setColor(c: QColor)
+  fn style Int
+  fn setStyle(style: Int)
+  fn isOpaque Bool
+}
+
+class QFont {
+  fn family String
+  fn setFamily(family: String)
+  fn pointSize Int
+  fn setPointSize(size: Int)
+  fn setPointSizeF(size: Float)
+  fn bold Bool
+  fn setBold(b: Bool)
+  fn italic Bool
+  fn setItalic(b: Bool)
+  fn underline Bool
+  fn setUnderline(b: Bool)
+  fn weight Int
+  fn setWeight(weight: Int)
+}
+
+class QPixmap {
+  fn isNull Bool
+  fn width Int
+  fn height Int
+  fn save(file: String, format: String) Bool
+  fn load(file: String) Bool
+  fn scaled(w: Int, h: Int) QPixmap
+  fn fill(color: QColor)
+}
+
+class QImage {
+  fn isNull Bool
+  fn width Int
+  fn height Int
+  fn save(file: String, format: String) Bool
+  fn load(file: String) Bool
+  fn pixelColor(x: Int, y: Int) QColor
+  fn setPixelColor(x: Int, y: Int, color: QColor)
+  fn scaled(w: Int, h: Int) QImage
+}
+
+class QPainter {
+  fn begin(device: QObject) Bool
+  fn end Bool
+  fn isActive Bool
+  fn setPen(pen: QPen)
+  fn setBrush(brush: QBrush)
+  fn setFont(font: QFont)
+  fn setOpacity(opacity: Float)
+  fn drawLine(x1: Int, y1: Int, x2: Int, y2: Int)
+  fn drawRect(x: Int, y: Int, w: Int, h: Int)
+  fn drawEllipse(x: Int, y: Int, w: Int, h: Int)
+  fn drawText(x: Int, y: Int, text: String)
+  fn drawPixmap(x: Int, y: Int, pixmap: QPixmap)
+  fn drawImage(x: Int, y: Int, image: QImage)
+  fn fillRect(x: Int, y: Int, w: Int, h: Int, brush: QBrush)
+  fn save
+  fn restore
+  fn translate(dx: Float, dy: Float)
+  fn rotate(degrees: Float)
+  fn scale(sx: Float, sy: Float)
+}

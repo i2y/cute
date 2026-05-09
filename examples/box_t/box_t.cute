@@ -1,0 +1,93 @@
+# Generic-class instantiation. `Box<T>` is an ARC class with a
+# generic property `item : T`. Three surface forms now work:
+#
+#   Form (a) — annotation drives type args:
+#     let i: Box<Int> = Box.new()
+#
+#   Form (b) — explicit type args at call site:
+#     let s = Box<String>.new()
+#
+#   Form (c) — function-arg propagation: the called fn's parameter
+#              type drives instantiation of `Box.new()`:
+#     fn put(b: Box<Int>) { ... }
+#     put(Box.new())
+#
+# All three lower to `cute::Arc<Box<...>>(new Box<...>())` so the
+# C++ template gets concrete arguments.
+
+arc Box<T> {
+  pub var item : T
+  pub fn describe String {
+    "box(item=#{item})"
+  }
+
+  # Method-level generic: `transform<U>` adds its own type param on
+  # top of the class's `T`. The user supplies a lambda `T -> U`,
+  # the type checker infers U from the lambda body, and codegen
+  # emits both `template <typename T>` (for the class) and
+  # `template <typename U>` (for the method). Inside the body we
+  # see `T` substituted to the receiver's type, so `f(item)`
+  # passes the boxed T into the user's mapping.
+  pub fn transform<U>(f: fn(T) -> U) U {
+    f(item)
+  }
+}
+
+# Consumer fn with a generic-typed parameter — exercises form (c).
+
+fn fillInt(b: Box<Int>, value: Int) {
+  b.setItem(value)
+}
+
+fn fillString(b: Box<String>, value: String) {
+  b.setItem(value)
+}
+
+# Producer fn with a generic-typed return — exercises return-type
+# propagation. The body uses bare `Box.new()`; the type checker
+# accepts it because the return annotation is `Box<Int>`.
+
+fn makeZero Box<Int> {
+  let b: Box<Int> = Box.new()
+  b.setItem(0)
+  b
+}
+
+fn main {
+  cli_app {
+    # Form (a) — annotation drives type args.
+    let i: Box<Int> = Box.new()
+    i.setItem(42)
+    println(i.describe())
+    println("item=#{i.item}")
+
+    # Form (b) — explicit type args at the call site.
+    let s = Box<String>.new()
+    s.setItem("hello")
+    println(s.describe())
+    println("item=#{s.item}")
+
+    # Form (b) with constructor args, mixed with form (a).
+    let f: Box<Float> = Box.new()
+    f.setItem(3.14)
+    println(f.describe())
+
+    # Form (c) — fn-arg propagation. `Box.new()` is bare; the
+    # checker sees `fill_int` wants `Box<Int>` and instantiates.
+    let p: Box<Int> = Box.new()
+    fillInt(p, 99)
+    println("propagated: #{p.item}")
+
+    fillString(Box<String>.new(), "world")  # form (b) inline arg
+
+    # Return-type propagation.
+    let z = makeZero()
+    println("zero: #{z.item}")
+
+    # Method-level generic: `transform<U>` lifts a `Box<Int>` into
+    # a `String` via the lambda body. U is inferred to String; the
+    # call lowers to `i->transform<::cute::String>(...)`.
+    let labelled = i.transform { |x: Int| "value is #{x}" }
+    println("transformed: #{labelled}")
+  }
+}

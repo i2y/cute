@@ -1,0 +1,50 @@
+# Kirigami "hello" demo.
+#
+# The single `use qml "org.kde.kirigami"` declaration below does
+# three things in lockstep:
+#
+#   1. Loads the bundled Kirigami binding (stdlib/qt/kirigami.qpi)
+#      so the type checker sees Kirigami's surface.
+#   2. Tells codegen to emit `import org.kde.kirigami 2.20` into
+#      the generated `.qml` file.
+#   3. With NO alias, Kirigami types are available under their
+#      bare names — `ApplicationWindow { ... }` resolves to
+#      Kirigami's, shadowing QtQuick.Controls's. Add `as Kirigami`
+#      to flip to the namespaced form and write
+#      `Kirigami.ApplicationWindow { ... }` explicitly.
+#
+# No `fn main` needed: when a file declares a top-level `view Main`
+# and no explicit `main`, the driver synthesises a QML app entry
+# automatically.
+
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "org.kde.kirigami" as Kirigami
+
+view Main {
+  # Use the explicit `Kirigami.X` prefix: QtQuick.Controls also
+  # defines `ApplicationWindow`, and an unaliased import lets
+  # QtQuick's win, leaving our `pageStack.initialPage:` to fail
+  # with "non-existent property" because QtQuick's version has no
+  # pageStack. The alias form pins us to Kirigami unambiguously.
+  Kirigami.ApplicationWindow {
+    title: "Cute on Kirigami"
+    width: 720
+    height: 480
+    visible: true
+
+    # Kirigami's ApplicationWindow renders content through its
+    # built-in PageRow stack; pages are added via
+    # `pageStack.initialPage: Page { ... }`. Direct nesting of a
+    # `Page` as a child does NOT show — the page goes into the
+    # window's `data` array instead of the stack.
+    pageStack.initialPage: Kirigami.Page {
+      title: "Hello"
+
+      Kirigami.Heading {
+        level: 1
+        text: "Welcome to Kirigami"
+      }
+    }
+  }
+}

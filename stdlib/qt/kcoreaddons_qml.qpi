@@ -1,0 +1,33 @@
+# org.kde.coreaddons — QML façade over KCoreAddons' value-style
+# helpers. The most useful type is `Format`: declarative locale-
+# aware byte/duration/date formatters. Most QML calls look like
+# `Format.formatByteSize(stat.size)` returning a localised String.
+#
+# QML import line:
+#   import org.kde.coreaddons
+#
+# Linking via cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6CoreAddons"]
+#   link_libraries = ["KF6::CoreAddons"]
+
+# Format: QML-exposed singleton for the KFormat C++ surface. The
+# methods mirror KFormat's; QML calls them through a singleton,
+# no instance needed (`Format.formatByteSize(123)`).
+class Format {
+  fn formatByteSize(size: Float, precision: Int) String
+  fn formatDuration(msecs: Int, options: Int) String
+  fn formatDecimalDuration(msecs: Int, decimalPlaces: Int) String
+  fn formatSpelloutDuration(msecs: Int) String
+  fn formatRelativeDate(date: QDate, format: Int) String
+  fn formatRelativeDateTime(dateTime: QDateTime, format: Int) String
+  fn formatValue(value: Float, unit: Int, precision: Int) String
+}
+
+# AboutData: QML-exposed singleton for KAboutData. Read-only
+# accessors; the underlying data is registered from C++ before
+# QML loads.
+class AboutData {
+  prop applicationData : KAboutData
+}

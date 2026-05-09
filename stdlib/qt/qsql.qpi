@@ -1,0 +1,52 @@
+# QtSql basics — driver-agnostic database access. Most use revolves
+# around `QSqlDatabase::addDatabase("QSQLITE")` (or other driver
+# names), `setDatabaseName(...)`, `open()`, then `QSqlQuery` for
+# parametrized statements.
+
+class QSqlDatabase {
+  fn open Bool
+  fn close
+  fn isOpen Bool
+  fn isValid Bool
+  fn setDatabaseName(name: String)
+  fn setHostName(host: String)
+  fn setPort(port: Int)
+  fn setUserName(user: String)
+  fn setPassword(password: String)
+  fn lastError QSqlError
+  fn tables QStringList
+  fn transaction Bool
+  fn commit Bool
+  fn rollback Bool
+}
+
+class QSqlQuery {
+  fn exec(query: String) Bool
+  fn prepare(query: String) Bool
+  fn bindValue(name: String, value: QVariant)
+  fn next Bool
+  fn previous Bool
+  fn first Bool
+  fn last Bool
+  fn value(index: Int) QVariant
+  fn lastError QSqlError
+  fn lastInsertId QVariant
+  fn numRowsAffected Int
+  fn record QSqlRecord
+  fn finish
+}
+
+class QSqlError {
+  fn isValid Bool
+  fn text String
+  fn nativeErrorCode String
+  fn driverText String
+  fn databaseText String
+}
+
+class QSqlRecord {
+  fn count Int
+  fn fieldName(index: Int) String
+  fn value(name: String) QVariant
+  fn indexOf(name: String) Int
+}

@@ -1,0 +1,40 @@
+# QtWidgets sibling of `examples/counter_state`. The `state` keyword
+# inside a `widget` body is desugared by the compiler into a
+# synthesized `__MainState < QObject` class plus a hidden
+# `let __cute_state = __MainState()` field, so the existing reactive
+# binding machinery (NOTIFY → setter lambda) wires `text` and
+# `onClicked` automatically without the user writing a class.
+widget Main {
+  state count : Int = 0
+
+  QMainWindow {
+    windowTitle: "Cute Widgets Counter (state)"
+    minimumWidth: 320
+    minimumHeight: 200
+
+    QWidget {
+      QVBoxLayout {
+        spacing: 12
+
+        QLabel {
+          text: "count: #{count}"
+          alignment: Qt.AlignHCenter
+        }
+
+        QHBoxLayout {
+          alignment: Qt.AlignHCenter
+          spacing: 8
+
+          QPushButton {
+            text: "+1"
+            onClicked: { count = count + 1 }
+          }
+          QPushButton {
+            text: "reset"
+            onClicked: { count = 0 }
+          }
+        }
+      }
+    }
+  }
+}

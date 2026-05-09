@@ -1,0 +1,107 @@
+# KF6 KIO — KDE's I/O framework. Models everything-is-a-URL: open
+# a remote file, list a directory, copy across file systems, run
+# desktop services, all through the same KJob abstraction. The
+# binding covers the high-level user-facing surface (OpenUrlJob,
+# CopyJob, MoveJob, DeleteJob) — the bits an app actually calls
+# from a "Open in browser" or "Move to trash" menu item. The
+# slave / protocol side is not bound.
+#
+# Linking via cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6KIO"]
+#   link_libraries = ["KF6::KIOCore", "KF6::KIOWidgets", "KF6::KIOGui"]
+#
+#   [cpp]
+#   includes = ["<KIO/OpenUrlJob>", "<KIO/CopyJob>", "<KIO/DeleteJob>"]
+
+# KJob: base class for every KIO async operation. `start()` kicks
+# the job off; `result(KJob*)` fires when it finishes (success or
+# error). Read `.error()` after for non-zero on failure.
+class KJob < QObject {
+  prop progressUnit : Int
+  prop capabilities : Int
+
+  signal result(job: KJob)
+  signal finished(job: KJob)
+  signal description(job: KJob, title: String, field1: String, field2: String)
+  signal infoMessage(job: KJob, plain: String, rich: String)
+  signal warning(job: KJob, plain: String, rich: String)
+  signal percentChanged(job: KJob, percent: Int)
+  signal speed(job: KJob, bytesPerSecond: Int)
+
+  fn start
+  fn kill Bool
+  fn suspend Bool
+  fn resume Bool
+  fn error Int
+  fn errorString String
+  fn errorText String
+  fn percent Int
+  fn isSuspended Bool
+  fn exec Bool
+}
+
+# KIO::OpenUrlJob: open a URL with whatever the user's environment
+# considers right (browser for http://, archive viewer for tarballs,
+# etc.). The runUrl()-of-KF5 successor.
+class OpenUrlJob < KJob {
+  fn setRunExecutables(allow: Bool)
+  fn setShowOpenOrExecuteDialog(show: Bool)
+  fn setDeleteTemporaryFile(del: Bool)
+  fn setSuggestedFileName(name: String)
+  fn setStartupId(id: QByteArray)
+}
+
+# KIO::CommandLauncherJob: run a desktop command with the user's
+# environment / DBus session bus / startup notification, the way
+# klauncher used to. Use this instead of QProcess for "Open
+# Terminal" or "Edit with..." menu items.
+class CommandLauncherJob < KJob {
+  fn setCommand(cmd: String)
+  fn setExecutable(exe: String)
+  fn setArguments(args: QStringList)
+  fn setWorkingDirectory(dir: String)
+  fn setStartupId(id: QByteArray)
+  fn setProcessEnvironment(env: QObject)
+  fn pid Int
+}
+
+# KIO::CopyJob: file/directory copy. Created by KIO::copy(srcs, dst)
+# in C++ — this binding describes the resulting job object.
+class CopyJob < KJob {
+  fn setAutoSkip(skipAll: Bool)
+  fn setAutoRename(autoRename: Bool)
+  fn setWriteIntoExistingDirectories(overwrite: Bool)
+}
+
+# KIO::DeleteJob: file/directory delete. Use KIO::del(urls) for
+# permanent delete, KIO::trash(urls) for trash. Both return one
+# of these.
+class DeleteJob < KJob {
+}
+
+# KFileItem: cached metadata about a single URL. Returned by
+# directory-listing jobs (KIO::ListJob) and the file-dialog
+# selection. Exposes the bits a UI typically renders next to
+# a filename.
+class KFileItem {
+  fn url String
+  fn name String
+  fn text String
+  fn mimetype String
+  fn iconName String
+  fn size Int
+  fn isDir Bool
+  fn isFile Bool
+  fn isLink Bool
+  fn isHidden Bool
+  fn isReadable Bool
+  fn isWritable Bool
+  fn isExecutable Bool
+  fn timeString String
+  fn permissionsString String
+  fn user String
+  fn group String
+  fn comment String
+}

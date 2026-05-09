@@ -1,0 +1,24 @@
+# Typesystem for `stdlib/qt/qabstractslider.qpi`. Q_OBJECT base
+# of QSlider / QScrollBar / QDial — carries the value / minimum /
+# maximum / step / tracking surface every range-input widget
+# shares, plus the valueChanged / sliderMoved / rangeChanged
+# signal family that wires up to user code.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QAbstractSlider"
+kind = "object"
+header = "${qt_widgets}/qabstractslider.h"
+comment = """
+QAbstractSlider — Q_OBJECT base for QSlider / QScrollBar / QDial.
+Carries the value / minimum / maximum / step surface every range-input
+widget shares, plus valueChanged / sliderMoved / rangeChanged signals.
+"""
+# Cute prop synthesis covers minimum / maximum / value / singleStep
+# etc. — the include list keeps just the multi-arg setRange + the
+# trigger primitives.
+include = ["setRange", "triggerAction"]

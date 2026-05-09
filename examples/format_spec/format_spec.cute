@@ -1,0 +1,34 @@
+# Demonstrates Python-style format specs in `#{value:fmt}` interp.
+# Specs supported:
+#   .Nf  fixed-point precision (.2f → 2 decimal places)
+#   .N%  percent ({:.0%} → 85% from 0.85)
+#   0N   zero-pad to width N
+#   >N <N ^N  alignment (right/left/center)
+#   d / x / b  integer base
+#
+# All work on Int, Float, String. Cute's runtime parses the spec at
+# call time via `::cute::str::format(value, "spec")`.
+
+fn main {
+  cli_app {
+    let pi = 3.14159265
+    println("pi = #{pi:.2f}")
+    println("pi = #{pi:.5f}")
+
+    let ratio = 0.857
+    println("hit rate: #{ratio:.0%}")
+    println("hit rate: #{ratio:.1%}")
+
+    let n = 42
+    println("zero-padded: #{n:08d}")
+    println("hex: #{n:x}")
+    println("bin: #{n:b}")
+
+    let label = "items"
+    println("[#{label:>20}]")
+    println("[#{label:<20}]")
+    println("[#{label:^20}]")
+
+    println("price: $#{pi:.2f}, count: #{n:5d}")
+  }
+}

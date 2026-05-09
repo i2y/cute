@@ -1,0 +1,93 @@
+# QtWidgets sibling of examples/qrange_model.
+#
+# `class Library` is **identical** to the QML version — same
+# `pub prop books : ModelList<Book>` typed wrapper exposes the
+# same `library.books : QAbstractItemModel*` accessor. Only the
+# OUTER PRESENTATION (`view ApplicationWindow ListView` vs
+# `widget QMainWindow QListView`) differs.
+#
+# That symmetry is the design point: `ModelList<T>` is the unified
+# front door for QML and QtWidgets. The user writes their data
+# class once; either backend consumes it via the same model
+# property.
+
+class Book {
+  pub prop title : String, default: ""
+  pub prop author : String, default: ""
+}
+
+fn makeBook(t: String, a: String) Book {
+  let b = Book.new()
+  b.title  = t
+  b.author = a
+  b
+}
+
+class Library {
+  # `ModelList<Book>` lowers to a `cute::ModelList<Book*>*` adapter
+  # whose `append` / `removeLast` / `clear` etc. are ordinary
+  # public methods; QListView consumes the pointer the same way
+  # QML's ListView does.
+  pub prop books : ModelList<Book>, default: [
+    makeBook("The Pragmatic Programmer", "Hunt & Thomas"),
+    makeBook("Domain-Driven Design", "Eric Evans"),
+    makeBook("Designing Data-Intensive Applications", "Martin Kleppmann"),
+    makeBook("Refactoring", "Martin Fowler"),
+    makeBook("The Mythical Man-Month", "Frederick Brooks"),
+  ]
+
+  pub prop nextSeq : Int, default: 1
+
+  pub fn appendBook {
+    books.append(makeBook("New Book ##{nextSeq}", "Live Demo"))
+    nextSeq = nextSeq + 1
+  }
+
+  pub fn dropLast {
+    if books.size() > 0 {
+      books.removeLast()
+    }
+  }
+
+  pub fn clearAll {
+    books.clear()
+  }
+}
+
+widget Main {
+  let library = Library()
+
+  QMainWindow {
+    windowTitle: "Cute QRangeModel demo (QtWidgets)"
+
+    QVBoxLayout {
+      QLabel {
+        text: "Reading list (QRangeModel-backed, QtWidgets QListView)"
+        styleSheet: "color: #1976d2; font-size: 16px; font-weight: bold;"
+      }
+      QLabel {
+        text: "model: library.books — same as the QML qrange_model demo"
+        styleSheet: "color: #616161;"
+      }
+
+      # Live-mutation buttons (same shape as the QML sibling). Each
+      # slot calls `books.<mutator>` internally — real public methods
+      # on the `cute::ModelList<Book*>` wrapper that fire begin/end
+      # signals, so the QListView re-fetches rows automatically.
+      QHBoxLayout {
+        QPushButton { text: "+ Add"; onClicked: library.appendBook() }
+        QPushButton { text: "− Drop last"; onClicked: library.dropLast() }
+        QPushButton { text: "Clear all"; onClicked: library.clearAll() }
+      }
+
+      # QListView consumes `library.books` the same way QML's ListView
+      # does. Default delegate currently renders blank rows because
+      # QRangeModel's auto-derived roles don't map to Qt::DisplayRole;
+      # `cute::ModelList<T>::data()` overrides this so DisplayRole
+      # falls through to the row type's first Q_PROPERTY.
+      QListView {
+        model: library.books
+      }
+    }
+  }
+}

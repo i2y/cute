@@ -1,0 +1,7 @@
+# Kirigami calculator demo. CMake link wiring only — the QML
+# import + binding load are driven by `use qml "..."` in the
+# .cute source.
+
+[cmake]
+find_package = ["KF6Kirigami"]
+link_libraries = ["KF6::Kirigami"]

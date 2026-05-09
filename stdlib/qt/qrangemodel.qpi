@@ -1,0 +1,40 @@
+# QRangeModel — Qt 6.11+ adapter that wraps a C++ Range (`QList<T*>`
+# of `QObject` items, or any STL-compatible range over a Q_GADGET
+# value type) and exposes it as a `QAbstractItemModel` consumable by
+# `Repeater`, `ListView`, `TableView`, etc. without subclassing
+# `QAbstractListModel`.
+#
+# In Cute, the natural way to use this is the `ModelList<T>` typed
+# prop wrapper (`pub prop xs : ModelList<T>`) — codegen lowers it to
+# a `cute::ModelList<T*>*` field that publicly extends QRangeModel,
+# parented under the owning class. Hand-construction of QRangeModel
+# from Cute is intentionally NOT exposed: the C++ ctor is templated
+# over the range type, and Cute bindings can't currently express
+# that. Use `ModelList<T>` instead.
+#
+# Surface kept intentionally small in v1 — the `ModelList<T>`
+# wrapper only needs the type to exist for type-check; users who
+# need the fuller surface (insertRows / removeRows / setRoleNames
+# / ...) can call them as regular Q_INVOKABLE methods, but most
+# consumers (QML / QtWidget views) drive the model through the
+# role-mapped `data()` path without touching these directly.
+#
+# Lives in QtCore from Qt 6.11. No extra `find_package` needed —
+# Cute's stdlib already pulls Qt6::Core unconditionally.
+
+class QRangeModel < QObject {
+  # AutoConnectPolicy enum values lower as plain Int. The C++ side
+  # uses `QRangeModel::AutoConnectPolicy::None` / `Full` / `OnRead`;
+  # in Cute pass `0` / `1` / `2` respectively when calling
+  # `setAutoConnectPolicy`. (Cute doesn't model foreign nested enums
+  # as first-class types yet.)
+  prop autoConnectPolicy : Int
+
+  fn rowCount Int
+  fn columnCount Int
+
+  fn resetRoleNames
+
+  signal roleNamesChanged
+  signal autoConnectPolicyChanged
+}

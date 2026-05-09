@@ -1,0 +1,16 @@
+[package]
+name = "cute-meta"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cute language: QMetaObject data table generation (replaces moc)."
+
+[dependencies]
+cute-syntax.workspace = true
+cute-hir.workspace = true
+cute-types.workspace = true
+codespan-reporting.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

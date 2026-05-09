@@ -1,0 +1,83 @@
+[project]
+site_name = "Cute"
+site_url = "https://i2y.github.io/cute/"
+site_description = "A general-purpose programming language for the Qt 6 / KDE Frameworks ecosystem. Compiles to native C++, no Q_OBJECT, no moc."
+site_author = "Yasushi Itoh"
+copyright = "Copyright &copy; 2026 Yasushi Itoh &mdash; MIT OR Apache-2.0"
+
+# `docs_dir` is relative to this config file; the home page is
+# rendered from `docs/index.md`.
+docs_dir = "docs"
+site_dir = "build"
+
+# Use directory-based URLs (e.g. `/getting-started/` instead of
+# `/getting-started.html`); the modern Zensical default.
+use_directory_urls = true
+
+# Navigation order. MkDocs / Material convention: array of
+# inline tables, each `Title = "page.md"`. Without this block
+# Zensical falls back to alphabetical auto-discovery, which would
+# put Anatomy before Installation — not the reading order we want.
+nav = [
+  { Home = "index.md" },
+  { Installation = "installation.md" },
+  { "Anatomy of a Cute app" = "anatomy.md" },
+  { "App targets" = "targets.md" },
+  { Toolchain = "toolchain.md" },
+  { "Language tour" = "tour.md" },
+  { Reference = "reference.md" },
+]
+
+[project.theme]
+variant = "modern"
+
+# ---- Palette --------------------------------------------------------------
+
+# Two-palette setup with manual toggle + OS-preference media query.
+# `teal` reads as calm-modern without being a generic indigo /
+# blue default; the same primary applies to both schemes so the
+# brand colour stays consistent across light and dark.
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "teal"
+accent = "deep-orange"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "teal"
+accent = "deep-orange"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+# ---- Markdown extensions ---------------------------------------------------
+
+# `[link](...){ .md-button }` and other Material-style attribute
+# lists for buttons, badges, and alignment.
+[project.markdown_extensions.attr_list]
+
+# `!!! note "Title" / ...` admonition blocks.
+[project.markdown_extensions.admonition]
+
+# Allow markdown inside raw HTML blocks (used for grid cards).
+[project.markdown_extensions.md_in_html]
+
+# Pygments-driven syntax highlighting. `pygments_lang_class`
+# adds a `language-<name>` CSS class so the cute-pygments lexer
+# (installed via `pip install -e ../extensions/cute-pygments/`)
+# is picked up automatically for ```cute fences.
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+# Fenced code blocks; required by pymdownx.highlight.
+[project.markdown_extensions.pymdownx.superfences]
+
+# Inline `:material-account:` icons + emoji, for Material's icon
+# library if/when used in feature cards.
+[project.markdown_extensions.pymdownx.emoji]

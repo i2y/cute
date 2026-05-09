@@ -1,0 +1,9 @@
+# UI Counter — increments by 10. Same simple name as model.Counter
+# but a completely separate class. Codegen mangles both to
+# `model__Counter` and `viewmodel__Counter` so they coexist in the
+# same C++ TU.
+pub class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn step { count = count + 10 }
+}

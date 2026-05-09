@@ -1,0 +1,35 @@
+class Counter {
+  # Plain `pub prop X : T = V` auto-derives `XChanged` and the
+  # setter fires it on a value change — the user no longer has to
+  # write `, notify: :countChanged` + `pub signal countChanged`
+  # ceremony. Add `, constant` to opt out for genuinely immutable
+  # storage. `count = count + 1` inside a method goes through the
+  # generated setter, which emits the auto-derived signal — no
+  # explicit `emit countChanged` needed.
+  pub prop count : Int, default: 0
+
+  pub fn increment { count = count + 1 }
+  pub fn reset { count = 0 }
+}
+
+widget Main {
+  let counter = Counter()
+
+  QMainWindow {
+    windowTitle: "Cute Widgets Counter"
+
+    QVBoxLayout {
+      QLabel { text: "click the button to count" }
+
+      QPushButton {
+        text: "+1"
+        onClicked: counter.increment()
+      }
+
+      QPushButton {
+        text: "reset"
+        onClicked: counter.reset()
+      }
+    }
+  }
+}

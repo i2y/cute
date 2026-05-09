@@ -1,0 +1,21 @@
+# Built-in Qt 6 binding for QCommandLineParser. The minimal surface
+# for typed flag parsing - long/short option pairs with optional
+# values, plus positional arguments. Heavier features
+# (option-list, version handling, etc.) can be added incrementally
+# without changing the user-side API shape.
+
+class QCommandLineOption < QObject {
+}
+
+class QCommandLineParser < QObject {
+  fn setApplicationDescription(description: String)
+  fn addHelpOption QCommandLineOption
+  fn addVersionOption QCommandLineOption
+  fn addPositionalArgument(name: String, description: String)
+  fn process(arguments: List)
+  fn isSet(name: String) Bool
+  fn value(name: String) String
+  fn values(name: String) List
+  fn positionalArguments List
+  fn unknownOptionNames List
+}

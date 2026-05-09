@@ -1,0 +1,32 @@
+# QFile: file I/O QObject. The C++ super chain is
+# QFile < QFileDevice < QIODevice < QObject; we collapse to plain
+# QObject for the Cute binding so user code doesn't need to thread
+# the intermediate abstractions. Auto-generated to replace the
+# handcraft `class QFile < QObject` block in qcore.qpi.
+#
+# `open()` returns Bool — Qt's "did the open succeed" pattern, NOT
+# the bool*-ok-out-arg shape; no `@lifted_bool_ok` lift applies.
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QFile"
+kind = "object"
+super_name = "QObject"
+header = "${qt_core}/qfile.h"
+include = [
+  "fileName",
+  "open",
+  "close",
+  "readAll",
+  "write",
+  "exists",
+  "remove",
+]
+# Qt 6's `qfile.h` writes `open(QIODeviceBase::OpenMode flags, ...)`;
+# `flags` is a Cute keyword so the binding can't expose it as a
+# param name. Match the previous handcraft's `mode` spelling, which
+# is also closer to the user-visible concept.
+params = { "open(Int)" = ["mode"], "open(Int,Int)" = ["mode", "permissions"], "open(Int,Int,Int)" = ["fd", "ioFlags", "handleFlags"] }

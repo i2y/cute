@@ -1,0 +1,28 @@
+# Nested case patterns drill into err variant + payload.
+
+enum ParseError {
+  empty
+  badFormat(reason: String)
+}
+
+fn parseInt(s: String) !Int {
+  if s == "" { return ParseError.empty() }
+  if s == "42" { return 42 }
+  return ParseError.badFormat(s)
+}
+
+fn report(s: String) {
+  case parseInt(s) {
+    when ok(n)               { println("parsed: #{n}") }
+    when err(empty())        { println("rejected: empty input") }
+    when err(badFormat(why)) { println("rejected: #{why}") }
+  }
+}
+
+fn main {
+  cli_app {
+    report("42")
+    report("")
+    report("hello")
+  }
+}

@@ -1,0 +1,60 @@
+# Common Qt 6 value / utility types used by other bindings as
+# parameter or return shapes (QVariant, QStringList, QUrl, QDate /
+# QDateTime, QFileInfo, QDir). These have no signals and most are
+# value types in C++ - bindings are minimal but enough to type-
+# check user code that handles return values from Qt APIs.
+
+# Default error type for Qt methods that signalled failure via a
+# `bool *ok = nullptr` out-parameter (e.g. `QString::toInt`,
+# `QByteArray::toDouble`). The `@lifted_bool_ok` codegen wrapper
+# turns those into `Result<T, QtBoolError>`; on the C++ side the
+# wrapper's `if (!_ok) return err(QtBoolError::failed())` is the
+# only way a `failed` value is constructed. Loaded at the top of
+# qcore.qpi so every other binding module can see this enum
+# without an explicit import. Declared with `error` (not `enum`)
+# so it carries `is_error: true` and can stand in for the
+# error-side of `!T` returns.
+error QtBoolError {
+  failed
+}
+
+class QVariant {
+  fn isNull Bool
+  fn isValid Bool
+  fn toString String
+  fn toInt Int
+  fn toBool Bool
+  fn toFloat Float
+}
+
+extern value QStringList {
+  fn count Int
+  fn isEmpty Bool
+  fn contains(s: String) Bool
+  fn join(sep: String) String
+  fn at(i: Int) String
+}
+
+# QByteArray lives in `qbytearray.qpi` (auto-generated via
+# `stdlib/qt/typesystem/qbytearray.toml`). Parsing methods carry the
+# `@lifted_bool_ok` marker so codegen wraps the bool*-ok call into
+# `Result<T, QtBoolError>` at the call site.
+
+# QDate / QDateTime live in qvaluetypes.qpi as `extern value` —
+# they are plain C++ value types and the binding-shape there
+# matches the C++ surface (no Q_OBJECT, member access via `.`).
+#
+# QFileInfo lives in `qfileinfo.qpi` (auto-generated via
+# `stdlib/qt/typesystem/qfileinfo.toml`).
+
+# QDir lives in `qdir.qpi` (auto-generated via
+# `stdlib/qt/typesystem/qdir.toml`).
+
+# QFile lives in `qfile.qpi` (auto-generated via
+# `stdlib/qt/typesystem/qfile.toml`). The auto-gen only sees QFile's
+# own methods (`open`, `fileName`, `exists`, `remove`); inherited
+# `close()` / `readAll()` / `write()` fall through to soft-pass at
+# the Cute type checker.
+
+# QThread lives in `qthread.qpi` (auto-generated via
+# `stdlib/qt/typesystem/qthread.toml`).

@@ -1,0 +1,33 @@
+# Typesystem for `stdlib/qt/qlineedit.qpi`. Single-line text input.
+# editingFinished fires on Return / focus-loss; textChanged fires
+# per-keystroke. Auto-gen catches the full Q_PROPERTY surface
+# (16 properties — way more than the handcraft's 6) plus all 7
+# signals.
+#
+# The handcraft used to live inside `qwidgets_extra.qpi` as a
+# tier-2 widget; lifted out into its own file now that the
+# auto-gen output is comprehensive enough to replace the inline
+# declaration.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QLineEdit"
+kind = "object"
+header = "${qt_widgets}/qlineedit.h"
+comment = """
+QLineEdit — single-line text input. editingFinished fires on Return /
+focus-loss; textChanged fires per-keystroke.
+"""
+# Curated method list: the editing actions users expect on a
+# line-edit. The Qt header has many more (cursorForward family,
+# selectAll variants, contextMenuEvent ...) but those are
+# editor-internal and would clutter the binding.
+include = ["clear", "copy", "cut", "paste", "selectAll", "setText", "setSelection"]
+# Signal param renames — Qt headers leave most signal args
+# unnamed. The auto-gen falls back to `_` which doesn't read
+# well at the call site (`onTextChanged: { _ in ... }`).
+params = { textChanged = ["text"], textEdited = ["text"], cursorPositionChanged = ["old", "now"] }

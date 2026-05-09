@@ -1,0 +1,33 @@
+# QtPrintSupport — printer + print dialog primitives. Used when an
+# app needs to render arbitrary content to a physical or PDF
+# printer via QPainter.
+
+class QPrinter {
+  fn isValid Bool
+  fn outputFileName String
+  fn setOutputFileName(file: String)
+  fn outputFormat Int
+  fn setOutputFormat(format: Int)
+  fn printerName String
+  fn setPrinterName(name: String)
+  fn pageOrientation Int
+  fn setPageOrientation(orientation: Int)
+  fn copyCount Int
+  fn setCopyCount(count: Int)
+  fn newPage Bool
+}
+
+class QPrintDialog < QObject {
+  signal accepted
+  signal rejected
+
+  fn exec Int
+  fn printer QPrinter
+}
+
+class QPrintPreviewDialog < QObject {
+  signal paintRequested(printer: QPrinter)
+
+  fn exec Int
+  fn printer QPrinter
+}

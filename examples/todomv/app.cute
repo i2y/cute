@@ -1,0 +1,51 @@
+class TodoItem {
+  pub prop text : String, default: ""
+  # `done` shares the `stateChanged` notify with future state-bearing
+  # fields; keep the explicit notify so they all fire one signal.
+  pub prop done : Bool, notify: :stateChanged, default: false
+  pub signal stateChanged
+
+  pub fn toggle { done = !done }
+}
+
+class TodoApp {
+  # `items` and `count` share one notify so a single QML binding
+  # reacts to either size or list mutations. Auto-derive can't
+  # express "two props → same signal", so declare the signal
+  # explicitly and reference it from both.
+  pub prop items : List<TodoItem>, notify: :itemsChanged, default: []
+  pub prop count : Int, notify: :itemsChanged, default: 0
+  pub signal itemsChanged
+
+  pub fn addTodo(text: String) {
+    let item = TodoItem.new()
+    item.setText(text)
+    items.append(item)
+    count = items.size()  # fires itemsChanged once via setter
+  }
+
+  pub fn toggleAt(row: Int) {
+    if row < 0 { return }
+    if row >= items.size() { return }
+    items[row].toggle()
+    # `items[row].toggle()` mutates an item in place; the list itself
+    # didn't change, so neither auto-emit nor the count setter fired.
+    emit itemsChanged
+  }
+
+  pub fn removeAt(row: Int) {
+    if row < 0 { return }
+    if row >= items.size() { return }
+    items.removeAt(row)
+    count = items.size()  # fires itemsChanged once via setter
+  }
+}
+
+fn main {
+  qml_app(
+    qml: "qrc:/main.qml",
+    module: "Cute.TodoMV",
+    type: TodoItem,
+    type: TodoApp
+  )
+}

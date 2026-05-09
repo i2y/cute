@@ -1,0 +1,21 @@
+# Typesystem for `stdlib/qt/qlabel.qpi`. QLabel inherits from
+# QFrame in C++; the prior handcraft skipped the QFrame layer and
+# went straight to QWidget. Now that QFrame is bound, QLabel can
+# declare its real super and pick up frameStyle / lineWidth via
+# the inheritance chain.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QLabel"
+kind = "object"
+header = "${qt_widgets}/qlabel.h"
+comment = """
+QLabel — plain text or rich-text display widget. The linkActivated /
+linkHovered signals fire when a hyperlink in rich text is clicked /
+hovered. Inherits frame decorations from QFrame.
+"""
+include = ["clear", "setText", "setNum"]

@@ -1,0 +1,80 @@
+# Typesystem for `stdlib/qt/qlayout.qpi`. The QLayout family —
+# QLayout (abstract) plus QBoxLayout / QHBoxLayout / QVBoxLayout /
+# QGridLayout / QFormLayout. Layouts are a sibling of widgets in
+# Qt's class hierarchy: both derive from QObject but layouts go
+# via QLayoutItem rather than QWidget.
+#
+# A single typesystem file binds the whole family because the
+# subclasses are tightly coupled (QHBoxLayout / QVBoxLayout add
+# nothing of their own beyond QBoxLayout's surface, so they need
+# the parent class declared in the same file to compile).
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QLayout"
+kind = "object"
+header = "${qt_widgets}/qlayout.h"
+comment = """
+QLayout — abstract base for widget layout managers. addWidget is
+the primitive every concrete layout shares; addLayout lives on
+the concrete subclasses (QBoxLayout takes (layout, stretch),
+QGridLayout takes (layout, row, column, ...)) so it isn't
+declared here.
+"""
+include = ["addWidget", "setContentsMargins"]
+params = { setContentsMargins = ["l", "t", "r", "b"] }
+
+[[classes]]
+name = "QBoxLayout"
+kind = "object"
+header = "${qt_widgets}/qboxlayout.h"
+comment = """
+QBoxLayout — base for QHBoxLayout / QVBoxLayout. Direction-driven
+linear layout with addStretch / addSpacing primitives.
+"""
+include = ["addStretch", "addSpacing", "insertSpacing", "insertStretch", "setStretch", "addStrut", "addLayout"]
+
+[[classes]]
+name = "QHBoxLayout"
+kind = "object"
+header = "${qt_widgets}/qboxlayout.h"
+comment = """
+QHBoxLayout — horizontal box layout. No own surface; surface
+comes from QBoxLayout via the inheritance chain.
+"""
+include = []
+
+[[classes]]
+name = "QVBoxLayout"
+kind = "object"
+header = "${qt_widgets}/qboxlayout.h"
+comment = """
+QVBoxLayout — vertical box layout. No own surface; surface
+comes from QBoxLayout via the inheritance chain.
+"""
+include = []
+
+[[classes]]
+name = "QGridLayout"
+kind = "object"
+header = "${qt_widgets}/qgridlayout.h"
+comment = """
+QGridLayout — 2D grid layout. The (row, col) addWidget overload
+is what most callers use; the spans variant is also exposed.
+"""
+include = ["addWidget", "addLayout", "setRowStretch", "setColumnStretch", "setRowMinimumHeight", "setColumnMinimumWidth"]
+params = { addWidget = ["w", "row", "column", "rowSpan", "columnSpan", "alignment"] }
+
+[[classes]]
+name = "QFormLayout"
+kind = "object"
+header = "${qt_widgets}/qformlayout.h"
+comment = """
+QFormLayout — label-on-left, field-on-right form layout. The
+QString / QWidget overloads of addRow are the common pattern.
+"""
+include = ["addRow", "insertRow", "setRowVisible"]

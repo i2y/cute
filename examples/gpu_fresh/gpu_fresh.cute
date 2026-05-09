@@ -1,0 +1,67 @@
+# Showcase: `prop x : T, fresh { expr }` — function-style property
+# backed by QObjectComputedProperty (re-evaluates on every read,
+# never caches, no automatic dep tracking).
+#
+# Contrast with `bind { expr }` which is auto-tracked + cached via
+# Qt 6's binding system. Both end up surfacing the same string in
+# this toy demo, but the underlying behaviour differs:
+#   - `bind { counter * 2 }` runs ONCE per counter change. The
+#     QObjectBindableProperty's binding records `counter` as a dep;
+#     subsequent reads return the cached value until counter ticks.
+#   - `fresh { counter * 2 }` runs EVERY READ. There is no cache;
+#     the constructor fans counter_changed → fresh_value_changed
+#     so QML/widget bindings still re-evaluate on input ticks (the
+#     QObjectComputedProperty's QBindable is subscription-less).
+#
+# The genuine `fresh` use case is when the body reads state Qt's
+# binding system can't observe — file size on disk, the wall
+# clock, a third-party getter, an RNG. For those, `bind` would
+# silently never re-evaluate; `fresh` re-reads on demand.
+
+class Counter {
+  pub prop tick : Int, bindable, default: 0
+
+  # Auto-tracked + cached. Re-evaluates only when `tick` changes.
+  pub prop boundDoubled : Int, bind { tick * 2 }
+
+  # Function-style. The wall clock isn't a Cute prop, so the
+  # binding system has no way to track changes to it — `bind`
+  # would silently freeze. `fresh` calls `compute_now()` on every
+  # read; the constructor fans `tick_changed` → `now_changed` so
+  # the QML/widget label re-reads (and the timestamp advances)
+  # whenever the user clicks.
+  pub prop now : String, fresh { QDateTime.currentDateTime().toString("HH:mm:ss.zzz") }
+
+  pub fn ping { tick = tick + 1 }
+}
+
+widget Main {
+  let c = Counter()
+
+  Column {
+    padding: 24.0
+    spacing: 10.0
+
+    Text { text: "bind vs fresh"; fontSize: 22.0; color: "#1976d2" }
+
+    Text { text: "── Bindable input ──"; color: "#888888" }
+    Text { text: "tick          : #{c.tick}";          fontSize: 18.0 }
+
+    Text { text: "── bind { } — QObjectBindableProperty + setBinding ──"; color: "#888888" }
+    Text { text: "bound_doubled : #{c.boundDoubled}"; fontSize: 18.0 }
+    Text { text: "(cached; lambda re-runs only when `tick` changes)"; color: "#888888" }
+
+    Text { text: "── fresh { } — QObjectComputedProperty ──"; color: "#888888" }
+    Text { text: "now           : #{c.now}";           fontSize: 22.0; color: "#2e7d32" }
+    Text { text: "(no cache; reads QDateTime.currentDateTime() every time)"; color: "#888888" }
+
+    Row {
+      spacing: 8.0
+      Button { text: "ping"; onClick: c.ping() }
+    }
+
+    Text { text: "Click `ping`. tick + bound_doubled increment by one step each click; `now` jumps wherever the wall clock is right now (deps Qt's binding system can't observe)."; color: "#888888" }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute bind vs fresh", theme: light) }

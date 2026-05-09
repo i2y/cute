@@ -1,0 +1,86 @@
+# Docker build-context exclusions. Without these, target/ alone
+# would balloon the tarball to multiple GB and stall the build
+# before any RUN step starts.
+target/
+.git/
+.idea/
+.vscode/
+
+# Build artifacts inside example dirs (cute-built binaries +
+# generated wrappers).
+examples/*/run.sh
+examples/*/.cs_resigned
+examples/*/*.run.sh
+examples/*/*.cs_resigned
+# The example binary is the same name as its dir; we can't
+# wildcard exactly, so list the most common .cute-build outputs.
+examples/counter/counter
+examples/counter_state/counter_state
+examples/two_counters/two_counters
+examples/cards/cards
+examples/conditional/conditional
+examples/loops/loops
+examples/case_view/case_view
+examples/format_spec/format_spec
+examples/error_match/error_match
+examples/arc_class/arc_class
+examples/box_t/box_t
+examples/generic_fn/generic_fn
+examples/cli_args/cli_args
+examples/charts/charts
+examples/calculator/calculator
+examples/calculator_kirigami/calculator_kirigami
+examples/widgets_counter/widgets_counter
+examples/widgets_hello/widgets_hello
+examples/notes/notes
+examples/reading_list/reading_list
+examples/todolist/todolist
+examples/http_hello/http_hello
+examples/kirigami_hello/kirigami_hello
+examples/async_demo/async_demo
+examples/embed_demo/embed_demo
+examples/enum_as_error_type/enum_as_error_type
+examples/err_variant_match/err_variant_match
+examples/file_handle/file_handle
+examples/init_deinit/init_deinit
+examples/internal_prop_demo/internal_prop_demo
+examples/json_demo/json_demo
+examples/lib_counter/lib_counter
+examples/lib_counter_app/lib_counter_app
+examples/qbytearray_parse/qbytearray_parse
+examples/qml_pnl/qml_pnl
+examples/qrange_model/qrange_model
+examples/recursive_enum/recursive_enum
+examples/slice_demo/slice_demo
+examples/store_demo/store_demo
+examples/struct_point/struct_point
+examples/test_demo/test_demo
+examples/traits/traits
+examples/traits_extern/traits_extern
+examples/weak_arc/weak_arc
+examples/widgets_books/widgets_books
+examples/widgets_counter_state/widgets_counter_state
+examples/widgets_pnl/widgets_pnl
+examples/gpu_chart/gpu_chart
+examples/gpu_fresh/gpu_fresh
+examples/gpu_huge_list/gpu_huge_list
+examples/gpu_modal/gpu_modal
+examples/gpu_notes/gpu_notes
+examples/gpu_pnl/gpu_pnl
+examples/gpu_progress/gpu_progress
+examples/gpu_scroll/gpu_scroll
+examples/gpu_state/gpu_state
+examples/gpu_svg/gpu_svg
+examples/gpu_table/gpu_table
+
+# Cute generated artifacts + .app bundles + Kirigami run wrappers
+# (matches the parallel sections in .gitignore).
+**/cute_generated/
+**/build/
+**/install/
+*.app/
+*.run.sh
+*.cs_resigned
+
+# OS junk.
+.DS_Store

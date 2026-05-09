@@ -1,0 +1,11 @@
+fn main(args: List) {
+  cli_app {
+    if args.isEmpty {
+      println("usage: {NAME} <name> [<name>...]")
+    } else {
+      for a in args {
+        println("hello, #{a}!")
+      }
+    }
+  }
+}

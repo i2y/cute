@@ -1,0 +1,19 @@
+# Typesystem for `stdlib/qt/qgroupbox.qpi`. QGroupBox is a visual
+# container with a title border — a common macOS / KDE layout
+# primitive for grouping form controls.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QGroupBox"
+kind = "object"
+header = "${qt_widgets}/qgroupbox.h"
+comment = """
+QGroupBox — visual container with a title border. Optional
+checkable mode makes the title double as a checkbox that
+enables / disables every child widget.
+"""
+include = []

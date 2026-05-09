@@ -1,0 +1,22 @@
+# Typesystem for `stdlib/qt/qlistview.qpi`. QListView is the
+# generic list-style item view — pairs with QAbstractItemModel.
+# QListWidget (in qlistwidget.qpi) is the simpler item-owning
+# variant; QListView is what you reach for when you want to
+# drive the view from a Cute `ModelList<T>` / QRangeModel.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QListView"
+kind = "object"
+header = "${qt_widgets}/qlistview.h"
+comment = """
+QListView — model-driven list view. Pairs with QAbstractItemModel
+(typically a Cute ModelList<T> wrapper, or QStandardItemModel for
+simple cases). For static / hand-built lists, QListWidget is the
+simpler choice.
+"""
+include = []

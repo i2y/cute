@@ -1,0 +1,45 @@
+# Typesystem for `stdlib/qt/qnetwork.qpi`. The QtNetwork basics —
+# QNetworkAccessManager + QNetworkRequest + QNetworkReply trio
+# that drives every Qt HTTP client. Cute users typically wrap the
+# async-by-finished signal pattern in their own helpers; the
+# bindings expose the surface so type-check catches typos.
+
+[clang]
+includes = ["${qt_core}", "${qt_network}"]
+std = "c++17"
+
+[[classes]]
+name = "QNetworkAccessManager"
+kind = "object"
+header = "${qt_network}/qnetworkaccessmanager.h"
+comment = """
+QNetworkAccessManager — Qt HTTP client. get / post / put /
+deleteResource each return a QNetworkReply that fires `finished`
+when the response is in. The manager itself fires `finished` for
+every reply too — useful when you want one slot to handle every
+request.
+"""
+include = ["get", "post", "put", "deleteResource", "head"]
+
+[[classes]]
+name = "QNetworkRequest"
+kind = "object"
+header = "${qt_network}/qnetworkrequest.h"
+comment = """
+QNetworkRequest — describes one HTTP request (URL + headers +
+attributes). Not a QObject in C++; the binding declares no super
+so Cute treats it as a plain class.
+"""
+include = ["url", "setUrl", "header", "setHeader", "rawHeader", "setRawHeader", "hasRawHeader", "attribute", "setAttribute"]
+
+[[classes]]
+name = "QNetworkReply"
+kind = "object"
+header = "${qt_network}/qnetworkreply.h"
+super_name = "QObject"
+comment = """
+QNetworkReply — one in-flight or completed HTTP response. Real
+C++ super is QIODevice (so readAll / readLine work); we declare
+QObject so the signal subscription path resolves at type-check.
+"""
+include = ["readAll", "url", "error", "errorString", "abort", "isFinished", "isRunning"]

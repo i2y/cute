@@ -1,0 +1,79 @@
+# Cycle-breaking with `weak` on arc class fields.
+#
+# Without `weak`, the parent-child structure below would form a
+# reference cycle: Parent.children stores `Arc<Child>` (strong refs),
+# and Child.parent would also store `Arc<Parent>` (strong). Neither
+# side's refcount would ever reach 0, and the deinits would never run.
+#
+# Marking the back-pointer `weak` flips the child's storage to
+# `cute::Weak<Parent>`, which doesn't contribute to the strong count.
+# The cycle breaks at the weak edge: when the outer scope releases
+# its only `Arc<Parent>`, Parent's refcount hits 0 → deinit fires →
+# Parent's children list drops, releasing each Arc<Child> → Child
+# deinits fire. The output should show:
+#
+#   Parent deinit
+#   Child deinit (1)
+#   Child deinit (2)
+#
+# The order between the two children isn't guaranteed by spec; what
+# matters is that *all* deinits fire.
+
+arc Parent {
+  pub var children : List<Child> = []
+
+  init {
+    children = []
+  }
+
+  deinit {
+    println("Parent deinit")
+  }
+
+  pub fn addChild(c: Child) {
+    children.append(c)
+  }
+}
+
+arc Child {
+  pub var label : Int = 0
+  weak let parent : Parent?
+
+  init(p: Parent, n: Int) {
+    parent = p
+    label = n
+  }
+
+  # Reads of `parent` (a `weak` field) transparently call `.lock()`
+  # and yield a `Parent?` (i.e. `Arc<Parent>` that may be null when
+  # the pointee has expired). The `case` pattern matches against
+  # that result and binds `p` to the strong reference inside the
+  # `some` arm.
+  pub fn describe {
+    case parent {
+      when some(p) {
+        println("child #{label} knows parent")
+      }
+      when nil {
+        println("child #{label} has no parent")
+      }
+    }
+  }
+
+  deinit {
+    println("Child deinit (#{label})")
+  }
+}
+
+fn main {
+  cli_app {
+    let p = Parent.new()
+    let c1 = Child.new(p, 1)
+    let c2 = Child.new(p, 2)
+    p.addChild(c1)
+    p.addChild(c2)
+    c1.describe()
+    c2.describe()
+    println("about to drop")
+  }
+}

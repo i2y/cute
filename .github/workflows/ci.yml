@@ -1,0 +1,63 @@
+name: CI
+
+# v1.0 contract: every push to main and every PR runs `just ci-full`,
+# which gates on Rust fmt + cargo check + cargo test, then `cute fmt
+# --check` against every demo source, then a smoke build of every demo.
+# A regression in any of those should fail the workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel in-flight runs when a new commit lands on the same branch /
+# PR — we only care about the latest revision.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    # macOS is the primary Cute target (Qt 6 + KDE Frameworks via
+    # Homebrew). A Linux job can be added later once a maintainer
+    # vouches for the apt/dnf Qt 6.11 path.
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      # Qt 6 ships QtCore / QtGui / QtQml / QtQuick / QtWidgets /
+      # QtHttpServer — enough for every demo except kirigami_hello
+      # (KF6Kirigami) and the gpu_* demos (Qt 6.11 CanvasPainter
+      # Tech Preview, not in mainline Homebrew yet).
+      - name: Install Qt 6 (Homebrew)
+        run: brew install qt
+
+      # Best-effort: kf6-kirigami enables building examples/kirigami_hello.
+      # `just demos-all` already tolerates a missing kirigami install
+      # (justfile demos-all special-cases kirigami_hello), so a failure
+      # here doesn't fail CI.
+      - name: Install KF6 Kirigami (best-effort)
+        run: brew install kf6-kirigami || true
+
+      - name: Cache cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Run full CI gate
+        run: just ci-full

@@ -1,0 +1,127 @@
+# `ModelList<T>` demo — Qt 6.11 QRangeModel adapter via Cute's
+# typed prop.
+#
+# A `Library` exposes `books : ModelList<Book>` as a
+# `QAbstractItemModel*` (a public-derived `QRangeModel`) that QML's
+# `ListView` consumes directly via `model: library.books`. No
+# hand-written `QAbstractListModel` subclass — `ModelList<T>`
+# synthesises a Q_PROPERTY whose value is a `QRangeModel`-backed
+# adapter, which auto-derives role names from the row type's
+# `Q_PROPERTY`s and forwards element-level `notify` signals as
+# `dataChanged`. Mutation goes through ordinary methods
+# (`books.append(b)`, `books.removeAt(i)`, `books.clear()`,
+# `books.replace(newList)`) — each fires the right begin/end
+# signals internally.
+#
+# Requires Qt 6.11 (QRangeModel landed there). The Cute compiler
+# only emits `<QRangeModel>` / `<QAbstractItemModel>` includes when
+# the project actually declares a `ModelList<T>` prop.
+
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+
+class Book {
+  pub prop title : String, default: ""
+  pub prop author : String, default: ""
+}
+
+# Helper for the `default:` expression — Cute's class-method
+# constructors auto-inject `this` as parent, but in a top-level fn
+# we use `T.new()` and let the surrounding QObject (Library) adopt
+# each Book through the QList<Book*> reference QRangeModel borrows.
+
+fn makeBook(t: String, a: String) Book {
+  let b = Book.new()
+  b.title  = t
+  b.author = a
+  b
+}
+
+class Library {
+  # `ModelList<Book>` is a `QAbstractItemModel*` adapter (a public-
+  # derived `QRangeModel`). QML's `ListView` consumes the pointer
+  # directly via `model: library.books`. Mutation goes through
+  # ordinary methods (`books.append(b)`, `books.removeAt(i)`,
+  # `books.clear()`, `books.replace(newList)`) — each fires the
+  # right begin/end signals internally.
+  pub prop books : ModelList<Book>, default: [
+    makeBook("The Pragmatic Programmer", "Hunt & Thomas"),
+    makeBook("Domain-Driven Design", "Eric Evans"),
+    makeBook("Designing Data-Intensive Applications", "Martin Kleppmann"),
+    makeBook("Refactoring", "Martin Fowler"),
+    makeBook("The Mythical Man-Month", "Frederick Brooks"),
+  ]
+}
+
+view Main {
+  let library = Library()
+
+  ApplicationWindow {
+    width: 520
+    height: 380
+    visible: true
+    title: "Cute QRangeModel demo"
+    color: "#ffffff"
+
+    Column {
+      anchors.fill: parent
+      anchors.margins: 16
+      spacing: 12
+
+      Label {
+        text: "Reading list (QRangeModel-backed)"
+        color: "#1976d2"
+        font.pixelSize: 18
+        font.bold: true
+      }
+
+      Label {
+        text: "model: library.books — no QAbstractListModel subclass needed"
+        color: "#616161"
+      }
+
+      ListView {
+        width: parent.width
+        height: 280
+        clip: true
+        model: library.books
+        delegate: Item {
+          width: ListView.view.width
+          height: 56
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 4
+            color: "#fafafa"
+            border.color: "#e0e0e0"
+            radius: 6
+            Column {
+              anchors.fill: parent
+              anchors.margins: 10
+              spacing: 2
+              # `MultiRoleItem` makes QRangeModel auto-derive a role
+              # for each `Q_PROPERTY` on the row type. Accessing the
+              # role through `model.title` (rather than a bare
+              # `title`) keeps the QML scope walk from picking up
+              # ApplicationWindow.title in the outer scope.
+              # Explicit text colors so the delegate stays readable
+              # under both light and dark system palettes (default
+              # Label color follows the palette, which would be
+              # white-on-light in dark mode).
+              Label {
+                text: model.title
+                color: "#212121"
+                font.bold: true
+                font.pixelSize: 14
+              }
+              Label {
+                text: "by " + model.author
+                color: "#616161"
+                font.italic: true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,221 @@
+# Cute on Kirigami — calculator with proper decimal input + flex
+# layout. The model carries Float internally so `.` works; the
+# view uses Cute's `VBox` / `HBox` sugar names that lower to
+# QtQuick.Layouts' ColumnLayout / RowLayout so each Button
+# stretches to fill its row. (`Row` / `Column` themselves stay
+# QtQuick's non-flex Row / Column, matching QML semantics.)
+#
+# Build: `CMAKE_PREFIX_PATH=$HOME/CraftRoot cute build`
+# Launch: `open calculator_kirigami.app` (codesign + DYLD wiring is
+# applied automatically by `cute build` for KF6Kirigami targets).
+
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Material"
+use qml "QtQuick.Layouts"
+use qml "org.kde.kirigami" as Kirigami
+
+class Calculator {
+  pub prop display : String, default: ""
+
+  # Working number being typed; Float so we can round-trip "3.14".
+  var current : Float = 0.0
+  # 0.0 = integer mode; otherwise the multiplier for the next
+  # incoming digit (0.1 → tenths, 0.01 → hundredths, …).
+  var decimalFactor : Float = 0.0
+  var acc : Float = 0.0
+  var op : String = ""
+  var fresh : Bool = false
+  pub fn digit(d: Int) {
+    if fresh {
+      current = 1.0 * d
+      decimalFactor = 0.0
+      fresh = false
+    } else {
+      if decimalFactor == 0.0 {
+        current = current * 10.0 + 1.0 * d
+      } else {
+        current = current + 1.0 * d * decimalFactor
+        decimalFactor = decimalFactor * 0.1
+      }
+    }
+    display = formatValue(current, decimalFactor)
+  }
+
+  pub fn dot {
+    if fresh {
+      current = 0.0
+      fresh = false
+    }
+    if decimalFactor == 0.0 {
+      decimalFactor = 0.1
+      # Show the trailing dot immediately so the user sees the
+      # mode flipped even before they type the next digit.
+      display = "#{current}."
+    }
+  }
+
+  pub fn pressOp(o: String) {
+    if op == "" {
+      acc = current
+    } else {
+      acc = compute(acc, op, current)
+    }
+    op = o
+    fresh = true
+    decimalFactor = 0.0
+    display = formatValue(acc, 0.0)
+  }
+
+  pub fn equals {
+    # No pending op = nothing to compute. Re-fire the change signal
+    # so any listener that missed the last update can refresh; the
+    # auto-emit doesn't kick in here because there's no `display =`
+    # write in this branch.
+    if op == "" {
+      emit displayChanged
+    } else {
+      acc = compute(acc, op, current)
+      op = ""
+      fresh = true
+      decimalFactor = 0.0
+      display = formatValue(acc, 0.0)
+    }
+  }
+
+  pub fn clear {
+    current = 0.0
+    acc = 0.0
+    op = ""
+    fresh = true
+    decimalFactor = 0.0
+    display = "0"
+  }
+
+  pub fn negate {
+    current = 0.0 - current
+    display = formatValue(current, decimalFactor)
+  }
+}
+
+# Render the working value with up to 10 significant digits.
+# `:.10g` drops trailing zeros and switches to scientific
+# notation for very large / small values automatically.
+
+fn formatValue(v: Float, decimalFactor: Float) String {
+  return "#{v:.10g}"
+}
+
+fn compute(a: Float, op: String, b: Float) Float {
+  if op == "+" { return a + b }
+  if op == "-" { return a - b }
+  if op == "*" { return a * b }
+  if op == "/" {
+    if b == 0.0 { return 0.0 }
+    return a / b
+  }
+  b
+}
+
+view Main {
+  Kirigami.ApplicationWindow {
+    title: "Cute Calculator"
+    width: 360
+    height: 540
+    visible: true
+
+    Calculator {
+      id: calc
+      display: "0"
+    }
+
+    pageStack.initialPage: Kirigami.Page {
+      title: "Calculator"
+
+      VBox {
+        anchors.fill: parent
+        anchors.margins: 12
+        spacing: 8
+
+        # Display row — fills horizontally and gets a fixed height
+        # at the top of the column.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 80
+          color: "#1a1a1a"
+          radius: 8
+
+          Label {
+            anchors.right: parent.right
+            anchors.rightMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            text: calc.display
+            color: "#ffffff"
+            font.pixelSize: 36
+          }
+        }
+
+        # Each button row stretches to fill the available width
+        # via `Layout.fillWidth: true`. Inside a Row, each
+        # Button's own `Layout.fillWidth: true` distributes the
+        # remaining space evenly.
+        HBox {
+          Layout.fillWidth: true
+          spacing: 6
+          Button { Layout.fillWidth: true; text: "C"; onClicked: calc.clear() }
+          Button { Layout.fillWidth: true; text: "±"; onClicked: calc.negate() }
+          Button { Layout.fillWidth: true; text: "÷"; onClicked: calc.pressOp("/") }
+          Button { Layout.fillWidth: true; text: "×"; onClicked: calc.pressOp("*") }
+        }
+        HBox {
+          Layout.fillWidth: true
+          spacing: 6
+          Button { Layout.fillWidth: true; text: "7"; onClicked: calc.digit(7) }
+          Button { Layout.fillWidth: true; text: "8"; onClicked: calc.digit(8) }
+          Button { Layout.fillWidth: true; text: "9"; onClicked: calc.digit(9) }
+          Button { Layout.fillWidth: true; text: "−"; onClicked: calc.pressOp("-") }
+        }
+        HBox {
+          Layout.fillWidth: true
+          spacing: 6
+          Button { Layout.fillWidth: true; text: "4"; onClicked: calc.digit(4) }
+          Button { Layout.fillWidth: true; text: "5"; onClicked: calc.digit(5) }
+          Button { Layout.fillWidth: true; text: "6"; onClicked: calc.digit(6) }
+          Button { Layout.fillWidth: true; text: "+"; onClicked: calc.pressOp("+") }
+        }
+        HBox {
+          Layout.fillWidth: true
+          spacing: 6
+          Button { Layout.fillWidth: true; text: "1"; onClicked: calc.digit(1) }
+          Button { Layout.fillWidth: true; text: "2"; onClicked: calc.digit(2) }
+          Button { Layout.fillWidth: true; text: "3"; onClicked: calc.digit(3) }
+          Button {
+            Layout.fillWidth: true
+            text: "="
+            highlighted: true
+            onClicked: calc.equals()
+          }
+        }
+        HBox {
+          Layout.fillWidth: true
+          spacing: 6
+          # `0` spans two cells (Layout.preferredWidth scaled up,
+          # plus a stretch factor of 2) so the bottom row stays
+          # the same width as the rows above.
+          Button {
+            Layout.fillWidth: true
+            Layout.columnSpan: 2
+            text: "0"
+            onClicked: calc.digit(0)
+          }
+          Button { Layout.fillWidth: true; text: "."; onClicked: calc.dot() }
+          # Spacer to keep five columns balanced — the `=` slot
+          # in this row is empty since we use the `=` from the
+          # row above.
+          Item { Layout.fillWidth: true }
+          Item { Layout.fillWidth: true }
+        }
+      }
+    }
+  }
+}

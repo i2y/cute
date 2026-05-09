@@ -1,0 +1,219 @@
+# Cute on QtWidgets — calculator with proper decimal input.
+# QHBoxLayout / QVBoxLayout flex by default on QtWidgets, so the
+# buttons fill their rows evenly without explicit sizing.
+
+class Calculator {
+  pub prop display : String, default: ""
+
+  # Internal state machine. Block form groups the sibling vars; the
+  # readable surface for outside callers is the `display` prop
+  # above. These track the next-keystroke decision (current
+  # accumulator, pending op, decimal-input position, fresh-after-op
+  # flag).
+  var (
+    current : Float = 0.0
+    decimalFactor : Float = 0.0
+    acc : Float = 0.0
+    op : String = ""
+    fresh : Bool = false
+  )
+  pub fn digit(d: Int) {
+    if fresh {
+      current = 1.0 * d
+      decimalFactor = 0.0
+      fresh = false
+    } else {
+      if decimalFactor == 0.0 {
+        current = current * 10.0 + 1.0 * d
+      } else {
+        current = current + 1.0 * d * decimalFactor
+        decimalFactor = decimalFactor * 0.1
+      }
+    }
+    display = "#{current:.10g}"
+  }
+
+  pub fn dot {
+    if fresh {
+      current = 0.0
+      fresh = false
+    }
+    if decimalFactor == 0.0 {
+      decimalFactor = 0.1
+      display = "#{current:.10g}."
+    }
+  }
+
+  pub fn pressOp(o: String) {
+    if op == "" {
+      acc = current
+    } else {
+      acc = compute(acc, op, current)
+    }
+    op = o
+    fresh = true
+    decimalFactor = 0.0
+    display = "#{acc:.10g}"
+  }
+
+  pub fn equals {
+    # No pending op = nothing to compute. Re-fire the change signal
+    # so any listener that missed the last update can refresh; the
+    # auto-emit doesn't kick in here because there's no `display =`
+    # write in this branch.
+    if op == "" {
+      emit displayChanged
+    } else {
+      acc = compute(acc, op, current)
+      op = ""
+      fresh = true
+      decimalFactor = 0.0
+      display = "#{acc:.10g}"
+    }
+  }
+
+  pub fn clear {
+    current = 0.0
+    acc = 0.0
+    op = ""
+    fresh = true
+    decimalFactor = 0.0
+    display = "0"
+  }
+
+  pub fn negate {
+    current = 0.0 - current
+    display = "#{current:.10g}"
+  }
+}
+
+fn compute(a: Float, op: String, b: Float) Float {
+  if op == "+" { return a + b }
+  if op == "-" { return a - b }
+  if op == "*" { return a * b }
+  if op == "/" {
+    if b == 0.0 { return 0.0 }
+    return a / b
+  }
+  b
+}
+
+# Compile-time style palette. On the widget path the recognised
+# QSS-shorthand keys (`color`, `background`, `borderRadius`,
+# `fontSize`, `fontWeight`, `padding*`, `margin*`, `border*`,
+# `textAlign`) plus pseudo-class prefixes (`hover.X`, `pressed.X`,
+# `focus.X`, `disabled.X`, `checked.X`) collapse into a single
+# `setStyleSheet(...)` call at codegen time — no QSS strings in
+# user code, no objectName tagging, no cascade-specificity tricks.
+# Length-typed values auto-suffix `px`; non-length numeric values
+# (e.g. `fontWeight`) pass through.
+
+style BtnBase {
+  minimumWidth: 64
+  minimumHeight: 64
+  border: "none"
+  borderRadius: 32
+}
+
+style NumLook {
+  background: "#333333"
+  color: "#ffffff"
+  fontSize: 26
+  fontWeight: 500
+  hover.background: "#3d3d3d"
+  pressed.background: "#555555"
+}
+
+style FnLook {
+  background: "#a5a5a5"
+  color: "#000000"
+  fontSize: 22
+  fontWeight: 600
+  hover.background: "#b8b8b8"
+  pressed.background: "#d4d4d4"
+}
+
+style OpLook {
+  background: "#ff9f0a"
+  color: "#ffffff"
+  fontSize: 30
+  fontWeight: 600
+  hover.background: "#ffae33"
+  pressed.background: "#cc7f08"
+}
+
+style NumBtn = BtnBase + NumLook
+
+style FnBtn  = BtnBase + FnLook
+
+style OpBtn  = BtnBase + OpLook
+
+style Display {
+  color: "#ffffff"
+  background: "transparent"
+  fontSize: 56
+  fontWeight: 200
+  paddingTop: 24
+  paddingBottom: 8
+  paddingLeft: 18
+  paddingRight: 18
+  textAlign: "right"
+}
+
+style Window {
+  windowTitle: "Cute Calculator"
+  minimumWidth: 340
+  minimumHeight: 520
+  background: "#1c1c1e"
+}
+
+widget Main {
+  let calc = Calculator()
+
+  QMainWindow {
+    style: Window
+
+    QVBoxLayout {
+      spacing: 10
+
+      QLabel {
+        style: Display
+        text: calc.display
+      }
+
+      QHBoxLayout {
+        spacing: 10
+        QPushButton { style: FnBtn; text: "C"; onClicked: calc.clear() }
+        QPushButton { style: FnBtn; text: "±"; onClicked: calc.negate() }
+        QPushButton { style: OpBtn; text: "÷"; onClicked: calc.pressOp("/") }
+        QPushButton { style: OpBtn; text: "×"; onClicked: calc.pressOp("*") }
+      }
+      QHBoxLayout {
+        spacing: 10
+        QPushButton { style: NumBtn; text: "7"; onClicked: calc.digit(7) }
+        QPushButton { style: NumBtn; text: "8"; onClicked: calc.digit(8) }
+        QPushButton { style: NumBtn; text: "9"; onClicked: calc.digit(9) }
+        QPushButton { style: OpBtn;  text: "−"; onClicked: calc.pressOp("-") }
+      }
+      QHBoxLayout {
+        spacing: 10
+        QPushButton { style: NumBtn; text: "4"; onClicked: calc.digit(4) }
+        QPushButton { style: NumBtn; text: "5"; onClicked: calc.digit(5) }
+        QPushButton { style: NumBtn; text: "6"; onClicked: calc.digit(6) }
+        QPushButton { style: OpBtn;  text: "+"; onClicked: calc.pressOp("+") }
+      }
+      QHBoxLayout {
+        spacing: 10
+        QPushButton { style: NumBtn; text: "1"; onClicked: calc.digit(1) }
+        QPushButton { style: NumBtn; text: "2"; onClicked: calc.digit(2) }
+        QPushButton { style: NumBtn; text: "3"; onClicked: calc.digit(3) }
+        QPushButton { style: OpBtn;  text: "="; onClicked: calc.equals() }
+      }
+      QHBoxLayout {
+        spacing: 10
+        QPushButton { style: NumBtn; text: "0"; onClicked: calc.digit(0) }
+        QPushButton { style: NumBtn; text: "."; onClicked: calc.dot() }
+      }
+    }
+  }
+}

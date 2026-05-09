@@ -1,0 +1,11 @@
+pub class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn increment {
+    count = count + 1
+  }
+
+  pub fn reset {
+    count = 0
+  }
+}

@@ -1,0 +1,2 @@
+Hello from an embedded asset!
+This text was sliced into the binary at compile time.

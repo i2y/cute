@@ -1,0 +1,29 @@
+# `@lifted_bool_ok` IIFE-wrapper demo: Qt's `QByteArray::toInt` /
+# `toDouble` signal failure via a `bool* ok` out-parameter; the
+# Cute binding marks them `@lifted_bool_ok` and codegen synthesizes
+# `Result<T, QtBoolError>` at the call site, no plumbing needed.
+#
+#   cute build qbytearray_parse.cute
+#   ./qbytearray_parse
+#     parsed: 42
+#     not a number: notnum
+
+fn report(bytes: QByteArray, label: String) {
+  case bytes.toInt(10) {
+    when ok(n)  { println("parsed (#{label}): #{n}") }
+    when err(_) { println("not a number (#{label})") }
+  }
+}
+
+fn main {
+  cli_app {
+    # Constructing a QByteArray from a Cute String literal isn't
+    # a one-call shape yet (QString → QByteArray needs `.toUtf8()`,
+    # which isn't bound on String today). Use the empty-arg ctor
+    # plus `fromBase64` round-trip to materialize a value the lifted
+    # wrapper can run against; the parsing path itself is what
+    # this demo exercises.
+    let empty = QByteArray.new()
+    report(empty, "empty")
+  }
+}

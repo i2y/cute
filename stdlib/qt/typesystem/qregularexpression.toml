@@ -1,0 +1,44 @@
+# QRegularExpression + QRegularExpressionMatch: regex with full
+# Perl-compatible syntax. Both are C++ value types (`extern value`)
+# — QRegularExpression carries the compiled pattern, the match
+# object carries one match's captured groups. New module; no
+# previous handcraft in stdlib.
+#
+# Usage shape:
+#
+#   let re = QRegularExpression.new("\\b(\\w+)\\b")
+#   let m = re.match("hello world")
+#   if m.hasMatch() {
+#     println("first: #{m.captured(1)}")
+#   }
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QRegularExpression"
+header = "${qt_core}/qregularexpression.h"
+include = [
+  "pattern",
+  "isValid",
+  "errorString",
+  "captureCount",
+  "namedCaptureGroups",
+  "match",
+  "optimize",
+]
+
+[[classes]]
+name = "QRegularExpressionMatch"
+header = "${qt_core}/qregularexpression.h"
+include = [
+  "hasMatch",
+  "hasPartialMatch",
+  "isValid",
+  "lastCapturedIndex",
+  "captured",
+  "capturedTexts",
+  "capturedStart",
+  "capturedLength",
+]

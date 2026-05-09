@@ -1,0 +1,19 @@
+# Compile-time asset embedding via the `embed("path")` intrinsic.
+# Like Go's `//go:embed`: the file is read by `cute build` and the
+# bytes land as a `static constexpr unsigned char[]` inside the
+# generated C++. Returns a zero-copy `ByteArray` (Qt's `QByteArray`
+# from `fromRawData`); compose with `QString::fromUtf8` /
+# `QImage::fromData` etc on the C++ side for typed shapes.
+
+let GREETING : ByteArray = embed("greeting.txt")
+
+let LICENSE : ByteArray = embed("../../LICENSE")
+
+fn main {
+  cli_app {
+    println("greeting.txt embedded #{GREETING.size()} bytes at compile time.")
+    println("LICENSE      embedded #{LICENSE.size()} bytes at compile time.")
+    println("(no QString conversion in this minimal demo — `embed` itself")
+    println(" is the language feature; QByteArray is the surface type.)")
+  }
+}

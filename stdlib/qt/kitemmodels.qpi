@@ -1,0 +1,68 @@
+# org.kde.kitemmodels — KItemModels' QML façade. Provides proxy
+# models that wrap an existing model (QAbstractItemModel) and
+# transform / filter / extend it without rebuilding the underlying
+# data. The most-used type is KSortFilterProxyModel, which gives
+# QML a declarative filterRowCallback / sortRoleName surface
+# without subclassing.
+#
+# QML import line (emitted automatically when the user writes
+# `use qml "org.kde.kitemmodels" as Kim`):
+#   import org.kde.kitemmodels
+#
+# Linking via cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6ItemModels"]
+#   link_libraries = ["KF6::ItemModels"]
+
+# KSortFilterProxyModel: declarative filter + sort over a source
+# model. Set `sourceModel: realModel`, `filterRoleName: "title"`,
+# `filterString: "..."`, and bindings re-evaluate as the source
+# changes. Sorting works the same way via sortRoleName / sortOrder.
+class SortFilterProxyModel < QObject {
+  prop sourceModel : QObject
+  prop filterRoleName : String
+  prop filterString : String
+  prop filterRegularExpression : String
+  prop filterCaseSensitivity : Int
+  prop sortRoleName : String
+  prop sortOrder : Int
+  prop sortCaseSensitivity : Int
+  prop count : Int
+
+  signal countChanged
+  signal filterRoleNameChanged
+  signal filterStringChanged
+  signal sortRoleNameChanged
+  signal sortOrderChanged
+
+  fn invalidateFilter
+  fn mapToSource(row: Int) Int
+  fn mapFromSource(row: Int) Int
+}
+
+# KExtraColumnsProxyModel: stack additional virtual columns on top
+# of a source model. Uncommon in pure QML projects but useful for
+# adapter layers; bound for completeness.
+class ExtraColumnsProxyModel < QObject {
+  prop sourceModel : QObject
+}
+
+# KConcatenateRowsProxyModel: concat several source models row-wise.
+# Handy when a list view needs to merge two underlying collections.
+class ConcatenateRowsProxyModel < QObject {
+  prop sourceModels : QObject
+}
+
+# KColumnHeadersModel: feeds a header view from a source model's
+# column headers. Mostly an adapter for tables.
+class ColumnHeadersModel < QObject {
+  prop sourceModel : QObject
+}
+
+# KRoleNames: utility that surfaces a model's role names as a list,
+# handy for debugging / introspection from QML.
+class RoleNames < QObject {
+  prop model : QObject
+  prop roleNames : QStringList
+}

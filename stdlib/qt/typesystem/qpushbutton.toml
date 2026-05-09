@@ -1,0 +1,25 @@
+# Typesystem description for `stdlib/qt/qpushbutton.qpi`. Driven by
+# `cute-qpi-gen --typesystem stdlib/qt/typesystem/qpushbutton.toml`.
+#
+# QPushButton's own surface is small — the heavy lifting (text,
+# checked, clicked, ...) lives on QAbstractButton, now bound
+# separately in qabstractbutton.qpi. The auto-gen scrapes
+# QPushButton's three own Q_PROPERTYs (autoDefault, default, flat)
+# and the showMenu method.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QPushButton"
+kind = "object"
+header = "${qt_widgets}/qpushbutton.h"
+comment = """
+QPushButton — the standard clickable button. The text / checkable /
+checked / clicked surface comes from the QAbstractButton parent
+(see qabstractbutton.qpi); QPushButton itself adds default-button
+focus behaviour and the popup-menu hook.
+"""
+include = ["showMenu"]

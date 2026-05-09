@@ -1,0 +1,30 @@
+# Cute's three memory models in one file:
+#
+#   class X { ... }              -> Q_OBJECT, Qt parent-tree owned
+#   arc X { ... }                -> non-QObject, ARC via cute::Arc<X>
+#   (struct - value type, not exercised here)
+#
+# Each ARC instance is reference counted by `cute::Arc<T>`. The user
+# never sees `retain` / `release` - the smart pointer handles them.
+# `arc` classes are final (no `< Super`) and cannot declare `signal`
+# or `slot` — those are QObject-only.
+
+arc Token {
+  pub var text : String = ""
+  pub var weight : Int = 0
+  pub fn describe String {
+    "token(weight=#{weight})"
+  }
+}
+
+fn main {
+  cli_app {
+    let t = Token.new()
+    t.setText("hello")
+    t.setWeight(42)
+
+    println("text=#{t.text}")
+    println("weight=#{t.weight}")
+    println("describe=#{t.describe()}")
+  }
+}

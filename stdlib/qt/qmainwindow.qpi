@@ -1,0 +1,10 @@
+# Built-in Qt 6 binding for QMainWindow. The typical top-level window
+# class for QtWidgets apps - has a central widget area plus optional
+# menu bar, status bar, dock widgets, toolbars.
+
+class QMainWindow < QWidget {
+  fn setCentralWidget(widget: QWidget)
+  fn centralWidget QWidget
+  fn statusBar QStatusBar
+  fn menuBar QMenuBar
+}

@@ -1,0 +1,29 @@
+[package]
+name = "cute-qpi-gen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Generate Cute .qpi binding files from C++ headers via libclang."
+
+[lib]
+name = "cute_qpi_gen"
+path = "src/lib.rs"
+
+# `test = false`: the bin links libclang via the `clang` crate and
+# resolves `@rpath/libclang.dylib` at load time, which `cargo test
+# --workspace` can't satisfy without an explicit DYLD path. The
+# library half holds every testable piece (typesystem schema, emit
+# logic, pure data types) so `cargo test --lib` covers them
+# without launching the bin runner.
+[[bin]]
+name = "cute-qpi-gen"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+clang = "2"
+clap = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }

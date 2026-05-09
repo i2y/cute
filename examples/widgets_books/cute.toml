@@ -1,0 +1,23 @@
+# QtWidgets sibling of examples/qrange_model — same `class Library`
+# with `prop Books : ModelList<Book>`, consumed by QListView
+# (QtWidgets) instead of QML's ListView. Demonstrates that the
+# `ModelList<T>` typed prop is the unified front door for both
+# backends.
+#
+# Status (2026-05-04): builds and runs. Type-check soft-passes
+# QListView (it's not yet declared in stdlib/qt/qwidgets_extra.qpi),
+# but the codegen's generic widget emission produces
+# `new QListView(); ->setModel(library->Books())`, which Qt's
+# `<QtWidgets>` umbrella include resolves at compile time.
+#
+# Open issues for step 2 of the QML+Widgets unification work:
+#   1. Cells render empty — QRangeModel auto-derives roles from the
+#      row type's Q_PROPERTYs, but nothing maps to Qt::DisplayRole
+#      by default. Need either a default mapping (first prop →
+#      DisplayRole) or a typed `ModelList<T, display: Title>` hint.
+#   2. QListView/QTableView/QAbstractItemModel still aren't typed
+#      in qwidgets_extra.qpi — typos go uncaught, methods like
+#      `setSpacing` aren't reachable from Cute. Soft-pass works but
+#      isn't ergonomic.
+#
+# Requires Qt >= 6.11 (QRangeModel landed there).

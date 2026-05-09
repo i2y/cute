@@ -1,0 +1,29 @@
+# Typesystem description for `stdlib/qt/qabstractbutton.qpi`. Driven
+# by `cute-qpi-gen --typesystem stdlib/qt/typesystem/qabstractbutton.toml`.
+#
+# QAbstractButton is the Q_OBJECT base class for QPushButton /
+# QCheckBox / QRadioButton / QToolButton. Cute's existing
+# `qpushbutton.qpi` flattens this hierarchy (declares text /
+# checked / clicked directly on QPushButton) — the new auto-gen
+# preserves the actual C++ shape so subclasses can reuse the
+# parent surface via Cute's regular method-resolution path.
+#
+# Curated surface: every Q_PROPERTY that qpushbutton.qpi already
+# exposes plus a few obvious additions (iconSize, autoRepeat
+# family, down). Signals are auto-collected from the Q_SIGNALS
+# section so the typesystem doesn't list them.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QAbstractButton"
+kind = "object"
+header = "${qt_widgets}/qabstractbutton.h"
+comment = """
+QAbstractButton — Q_OBJECT base for QPushButton / QCheckBox / QRadioButton.
+Carries the text / checked / clicked surface every button subclass shares.
+"""
+include = ["animateClick", "click", "toggle"]

@@ -1,0 +1,30 @@
+# Typesystem for `stdlib/qt/qspinbox.qpi`. QSpinBox / QDoubleSpinBox
+# inherit from QAbstractSpinBox; their own additions are the
+# value / range / single-step / prefix / suffix Q_PROPERTYs and
+# the valueChanged signal.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QSpinBox"
+kind = "object"
+header = "${qt_widgets}/qspinbox.h"
+comment = """
+QSpinBox — integer spin box. Inherits readOnly / wrapping /
+buttonSymbols from QAbstractSpinBox; adds the value / range /
+single-step / prefix / suffix Q_PROPERTYs and the valueChanged
+signal.
+"""
+include = ["setValue", "setRange"]
+
+[[classes]]
+name = "QDoubleSpinBox"
+kind = "object"
+header = "${qt_widgets}/qspinbox.h"
+comment = """
+QDoubleSpinBox — floating-point spin box, decimals-aware.
+"""
+include = ["setValue", "setRange", "setDecimals"]

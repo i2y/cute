@@ -1,0 +1,28 @@
+# Built-in Qt 6 binding for QObject.
+#
+# Loaded automatically by cute-binding at compile time. Gives the
+# type checker a real method/property/signal table for `QObject`,
+# so that `class X { ... }` (which defaults to `< QObject` per spec)
+# can resolve `widget.deleteLater()` etc. instead of soft-passing
+# every call as External.
+#
+# The body intentionally has no `fn ... { ... }` blocks - bindings
+# describe the C++ surface, not its implementation. Codegen never
+# emits anything for these classes; they exist purely so the type
+# checker has a definition to walk.
+
+class QObject {
+  prop objectName : String, notify: :objectNameChanged
+
+  signal destroyed
+  signal objectNameChanged(name: String)
+
+  fn deleteLater
+  fn dumpObjectInfo
+  fn dumpObjectTree
+  fn parent QObject?
+  fn setParent(parent: QObject?)
+  fn blockSignals(block: Bool) Bool
+  fn signalsBlocked Bool
+  fn thread QThread
+}

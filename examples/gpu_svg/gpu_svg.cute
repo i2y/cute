@@ -1,0 +1,39 @@
+# SVG icon rendering for the cute_ui (gpu_app) backend.
+# QSvgRenderer rasterizes each SVG to a QImage at the configured size,
+# uploads via QCanvasPainter::addImage, and the GPU draws it.
+#
+# Build / run:
+#   cute install-cute-ui
+#   cute build gpu_svg.cute
+#   ./gpu_svg
+
+class Counter {
+  pub prop hearts : Int, default: 0
+  pub prop stars : Int, default: 0
+  pub fn addHeart { hearts = hearts + 1 }
+  pub fn addStar { stars = stars + 1 }
+}
+
+widget Main {
+  let counter = Counter()
+
+  Column {
+    Text { text: "SVG icons demo" }
+
+    Row {
+      Svg { source: "heart.svg"; width: 64.0; height: 64.0 }
+      Svg { source: "star.svg"; width: 64.0; height: 64.0 }
+      Svg { source: "heart.svg"; width: 32.0; height: 32.0 }
+      Svg { source: "star.svg"; width: 32.0; height: 32.0 }
+    }
+
+    Text { text: "Hearts: #{counter.hearts}    Stars: #{counter.stars}" }
+
+    Row {
+      Button { text: "+ heart"; onClick: counter.addHeart() }
+      Button { text: "+ star"; onClick: counter.addStar() }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute SVG demo") }

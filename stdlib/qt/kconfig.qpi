@@ -1,0 +1,74 @@
+# KF6 KConfig — KDE's configuration framework. The KDE-native
+# alternative to QSettings: same idea (key-value persistent store)
+# with stronger features (group inheritance, defaults, immutability,
+# shared singletons across an app). KSharedConfig is the standard
+# entry point; KConfigGroup carves a namespace inside a config
+# file; readEntry / writeEntry with explicit types is the common
+# read path.
+#
+# Linking opts in via cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6Config"]
+#   link_libraries = ["KF6::ConfigCore", "KF6::ConfigGui"]
+#
+#   [cpp]
+#   includes = ["<KConfig>", "<KSharedConfig>", "<KConfigGroup>"]
+
+# KConfig: a single config file, owned by the caller. Most apps
+# don't construct one directly — they go through KSharedConfig::openConfig()
+# to share a singleton across the process. Use this directly when
+# you need an isolated config (per-document settings, etc.).
+class KConfig < QObject {
+  fn name String
+  fn group(name: String) KConfigGroup
+  fn groupList QStringList
+  fn hasGroup(name: String) Bool
+  fn isImmutable Bool
+  fn isConfigWritable(warnUser: Bool) Bool
+  fn sync Bool
+  fn reparseConfiguration
+  fn markAsClean
+  fn checkUpdate(id: String, updateFile: String) Bool
+}
+
+# KSharedConfig: process-wide singleton config file. The standard
+# call is `KSharedConfig::openConfig()` (no args) which returns a
+# KSharedConfig::Ptr to the app's main config — the same one
+# subsequent calls return. Pass a filename to open a non-default
+# file. Inherits KConfig's API.
+class KSharedConfig < KConfig {
+  fn openConfig(fileName: String, mode: Int) KSharedConfig
+  fn openStateConfig(fileName: String) KSharedConfig
+}
+
+# KConfigGroup: a namespaced view inside a KConfig. Read / write
+# typed entries via readEntry<T> / writeEntry — the binding
+# expresses the common String / Int / Bool / Float overloads as
+# uniquely-named methods (Cute doesn't yet support overloads).
+# `group(...)` returns a sub-group for hierarchical config.
+class KConfigGroup {
+  fn name String
+  fn exists Bool
+  fn isImmutable Bool
+  fn isValid Bool
+  fn hasKey(key: String) Bool
+  fn keyList QStringList
+  fn groupList QStringList
+  fn group(name: String) KConfigGroup
+
+  fn readEntry(key: String, defaultValue: String) String
+  fn readEntryInt(key: String, defaultValue: Int) Int
+  fn readEntryBool(key: String, defaultValue: Bool) Bool
+  fn readEntryFloat(key: String, defaultValue: Float) Float
+
+  fn writeEntry(key: String, value: String)
+  fn writeEntryInt(key: String, value: Int)
+  fn writeEntryBool(key: String, value: Bool)
+  fn writeEntryFloat(key: String, value: Float)
+
+  fn deleteEntry(key: String)
+  fn deleteGroup
+  fn sync
+  fn markAsClean
+}

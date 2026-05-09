@@ -1,0 +1,68 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Material"
+
+class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn increment { count = count + 1 }
+  pub fn reset { count = 0 }
+}
+
+view Main {
+  let counter = Counter()
+
+  ApplicationWindow {
+    width: 360
+    height: 280
+    visible: true
+    title: "Cute else-if"
+
+    Material.theme: Material.Light
+    Material.primary: Material.Indigo
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 16
+
+      Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "count: " + counter.count
+        font.pixelSize: 24
+      }
+
+      if counter.count > 10 {
+        Label {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "S tier"
+          color: "purple"
+        }
+      } else if counter.count > 5 {
+        Label {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "A tier"
+          color: "orange"
+        }
+      } else if counter.count > 0 {
+        Label {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "B tier"
+          color: "blue"
+        }
+      } else {
+        Label {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "(click +1 to start)"
+          opacity: 0.5
+        }
+      }
+
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 8
+        Button { text: "+1"; highlighted: true; onClicked: counter.increment() }
+        Button { text: "reset"; onClicked: counter.reset() }
+      }
+    }
+  }
+}

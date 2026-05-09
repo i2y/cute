@@ -1,0 +1,13 @@
+# Kirigami (KDE Frameworks) demo manifest. The QML import + binding
+# load are now declared in the .cute source via
+# `use qml "org.kde.kirigami"`; this file only carries the CMake
+# link wiring (KDE Frameworks isn't a Cute concern, just a build-
+# system dependency).
+#
+# `KF6Kirigami` requires KDE Frameworks 6 to be installed and
+# discoverable to CMake. On a typical KDE system this is just
+# `kirigami` (or `extra-cmake-modules` + `kirigami2` for KF5).
+
+[cmake]
+find_package = ["KF6Kirigami"]
+link_libraries = ["KF6::Kirigami"]

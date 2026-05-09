@@ -1,0 +1,23 @@
+# QFileInfo: filesystem metadata accessor (`exists()`, `size()`,
+# `fileName()`, ...). C++ value type — passes by value, no
+# QObject machinery. Auto-generated to replace the handcraft entry
+# in `stdlib/qt/qcore.qpi`; the editorial allowlist mirrors the
+# methods the handcraft chose to expose.
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QFileInfo"
+header = "${qt_core}/qfileinfo.h"
+include = [
+  "exists",
+  "isFile",
+  "isDir",
+  "size",
+  "fileName",
+  "absoluteFilePath",
+  "baseName",
+  "suffix",
+]

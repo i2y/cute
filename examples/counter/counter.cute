@@ -1,0 +1,54 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Material"
+
+use model
+use styles
+
+view Main {
+  ApplicationWindow {
+    width: 320
+    height: 220
+    visible: true
+    title: "Cute Counter"
+
+    Material.theme: Material.Light
+    Material.primary: Material.Indigo
+    Material.accent: Material.Indigo
+
+    # Qualified element ref: explicitly point at `Counter` in
+    # module `model`. The bare `Counter { ... }` form also works
+    # once `use model` is in scope.
+    model.Counter { id: counter }
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 16
+
+      Label {
+        style: HeadingCentered
+        text: "count: " + counter.count
+      }
+
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 12
+
+        Button {
+          text: "+1"
+          highlighted: true
+          onClicked: counter.increment()
+        }
+        Button {
+          text: "reset"
+          onClicked: counter.reset()
+        }
+      }
+
+      Label {
+        style: CaptionCentered
+        text: "no QML, no main.cpp - just Cute"
+      }
+    }
+  }
+}

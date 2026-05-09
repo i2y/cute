@@ -1,0 +1,20 @@
+[package]
+name = "cute-driver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cute language: compiler driver (orchestration + diagnostics)."
+
+[dependencies]
+cute-syntax.workspace = true
+cute-hir.workspace = true
+cute-types.workspace = true
+cute-lower.workspace = true
+cute-codegen.workspace = true
+cute-meta.workspace = true
+cute-binding.workspace = true
+codespan-reporting.workspace = true
+thiserror.workspace = true
+tempfile = "3"
+toml.workspace = true
+serde.workspace = true

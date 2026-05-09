@@ -1,0 +1,44 @@
+# Mint-inspired declarative singleton state objects.
+#
+# `store Foo { ... }` desugars (AST pre-pass `desugar_store`) into:
+#
+#   class Foo < QObject { pub ... }
+#   let Foo : Foo = Foo.new()
+#
+# The Q_GLOBAL_STATIC post-pass lifts the same-name let to a
+# process-lifetime singleton — one instance, accessible anywhere as
+# `Foo.member`. Bare `Foo` references in expression position rewrite
+# to `Foo()` (the auto-generated accessor), and `Foo.x` becomes
+# `Foo()->x()` in the emitted C++.
+#
+# `state X : T = init` inside a store body lowers to a (`prop X : T,
+# notify: :XChanged, default: init`, `signal XChanged`) pair, so QML
+# / widget property bindings on `Foo.X` re-render reactively when X
+# changes.
+
+store Counter {
+  state value : Int = 0
+
+  fn bump { value = value + 1 }
+  fn reset { value = 0 }
+}
+
+store Status {
+  state lastAction : String = "(none)"
+
+  fn record(s: String) { lastAction = s }
+}
+
+fn main {
+  cli_app {
+    Counter.bump()
+    Counter.bump()
+    Counter.bump()
+    Status.record("bumped 3 times")
+    println("Counter.value = #{Counter.value}, Status.lastAction = #{Status.lastAction}")
+
+    Counter.reset()
+    Status.record("reset")
+    println("after reset → Counter.value = #{Counter.value}, Status.lastAction = #{Status.lastAction}")
+  }
+}

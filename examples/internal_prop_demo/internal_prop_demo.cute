@@ -1,0 +1,52 @@
+# Internal `prop` pattern — a private `bindable` cell drives a
+# public derived prop through Qt 6's binding system. The class
+# exposes only the methods that mutate state and the derived
+# view; internal state stays encapsulated.
+#
+# `Document` tracks edits with two internal counters. The
+# derived `isDirty` and `saveLabel` props re-evaluate
+# automatically when either counter changes, courtesy of the
+# binding system's per-prop dependency tracking — even though
+# the deps themselves are class-private.
+
+class Document {
+  # Internal: `bindable` makes the binding system observe
+  # writes, but no `pub` means callers can't read these
+  # directly. Encapsulation via Q_PROPERTY without QML exposure.
+  prop changeCount : Int, bindable, default: 0
+  prop pristineCount : Int, bindable, default: 0
+
+  # Public: each `bind { ... }` body reads internal `prop`s and
+  # gets re-evaluated lazily when either changes.
+  pub prop isDirty : Bool, bind { changeCount != pristineCount }
+  pub prop saveLabel : String, bind { if isDirty { "Save *" } else { "Save" } }
+
+  pub fn touch { changeCount = changeCount + 1 }
+  pub fn save { pristineCount = changeCount }
+}
+
+fn report(d: Document, stage: String) {
+  println("#{stage}: isDirty=#{d.isDirty}, label=\"#{d.saveLabel}\"")
+}
+
+fn main {
+  cli_app {
+    let d = Document.new()
+    report(d, "initial    ")
+
+    d.touch()
+    d.touch()
+    report(d, "after touch")
+
+    d.save()
+    report(d, "after save ")
+
+    d.touch()
+    report(d, "after touch")
+
+    # d.changeCount  -- parse error: `changeCount` is private to
+    #                   `Document`. Internal state is reachable only
+    #                   through Document's own methods + the public
+    #                   derived `isDirty` / `saveLabel` views.
+  }
+}

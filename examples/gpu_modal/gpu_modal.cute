@@ -1,0 +1,39 @@
+# Modal overlay demo for the cute_ui (gpu_app) backend.
+#
+# Build / run:
+#   cute install-cute-ui
+#   cute build gpu_modal.cute
+#   ./gpu_modal
+#
+# Click "Open dialog" — the modal is rendered over a half-transparent
+# dim background, with a centered rounded surface holding the children.
+# Cancel / OK both close the dialog.
+
+class State {
+  pub prop showing : Bool, default: false
+  pub fn show { showing = true }
+  pub fn hide { showing = false }
+}
+
+widget Main {
+  let state = State()
+
+  Column {
+    Text { text: "Modal demo" }
+    Text { text: "Click below to open a centered dialog." }
+    Button { text: "Open dialog"; onClick: state.show() }
+
+    if state.showing {
+      Modal {
+        Text { text: "Are you sure?" }
+        Text { text: "This is a centered modal dialog." }
+        Row {
+          Button { text: "Cancel"; onClick: state.hide() }
+          Button { text: "OK"; onClick: state.hide() }
+        }
+      }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute Modal demo") }

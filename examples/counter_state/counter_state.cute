@@ -1,0 +1,49 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Material"
+
+# SwiftUI-style `@State` in Cute: a primitive reactive cell declared
+# at the head of the `view` body. No `class Counter`, no `pub prop`,
+# no manual `signal countChanged`, no `emit`. The `state` line lowers
+# to a QML root-level `property int count: 0`; QML auto-generates the
+# `countChanged` notify so dependent bindings refresh on assignment.
+
+view Main {
+  state count : Int = 0
+
+  ApplicationWindow {
+    width: 320
+    height: 220
+    visible: true
+    title: "Cute Counter (state)"
+
+    Material.theme: Material.Light
+    Material.primary: Material.Indigo
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 16
+
+      Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "count: " + count
+        font.pixelSize: 28
+      }
+
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 12
+
+        Button {
+          text: "+1"
+          highlighted: true
+          onClicked: { count = count + 1 }
+        }
+        Button {
+          text: "reset"
+          onClicked: { count = 0 }
+        }
+      }
+    }
+  }
+}

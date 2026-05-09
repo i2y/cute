@@ -1,0 +1,24 @@
+class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn increment {
+    count = count + 1
+  }
+}
+
+widget Main {
+  let counter = Counter()
+
+  QMainWindow {
+    windowTitle: "{NAME}"
+
+    QVBoxLayout {
+      QLabel { text: "Count: #{counter.count}" }
+
+      QPushButton {
+        text: "+1"
+        onClicked: counter.increment()
+      }
+    }
+  }
+}

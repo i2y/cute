@@ -1,0 +1,54 @@
+# Typesystem for `stdlib/qt/qmenu.qpi`. The action-driven
+# menu / menubar surface — QAction (Q_OBJECT-derived, not a
+# widget), QMenu / QMenuBar (QWidget-derived, hold and dispatch
+# QActions).
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QAction"
+kind = "object"
+header = "${qt_gui}/qaction.h"
+comment = """
+QAction — abstract user command. Lives directly under QObject
+(Qt 6 moved it from QtWidgets to QtGui). Connects to QMenu /
+QToolBar via addAction; the `triggered` signal fires when the
+user activates the action.
+"""
+include = []
+
+[[classes]]
+name = "QMenu"
+kind = "object"
+header = "${qt_widgets}/qmenu.h"
+comment = """
+QMenu — popup menu containing QActions / sub-QMenus. Used as
+the body of a menubar entry, a context menu, or a popup off a
+QToolBar / QPushButton.
+"""
+include = ["addAction", "addMenu", "addSeparator", "clear", "popup"]
+
+[[classes]]
+name = "QMenuBar"
+kind = "object"
+header = "${qt_widgets}/qmenubar.h"
+comment = """
+QMenuBar — top-of-window menu strip. macOS QtWidgets renders this
+as the unified menubar at the top of the screen automatically.
+QMainWindow.setMenuBar wires one in.
+"""
+include = ["addMenu", "addAction", "addSeparator", "clear"]
+
+[[classes]]
+name = "QToolBar"
+kind = "object"
+header = "${qt_widgets}/qtoolbar.h"
+comment = """
+QToolBar — horizontal / vertical strip of QActions or arbitrary
+QWidgets. macOS QtWidgets renders this as a native unified
+toolbar by default.
+"""
+include = ["addAction", "addWidget", "addSeparator", "clear"]

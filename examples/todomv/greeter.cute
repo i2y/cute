@@ -1,0 +1,9 @@
+class Greeter {
+  var name : String = ""
+  signal greeted(message: String)
+
+  fn greet {
+    let m = "Hello, #{name}! You are #{name.length()} chars long."
+    emit greeted(m)
+  }
+}

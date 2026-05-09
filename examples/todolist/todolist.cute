@@ -1,0 +1,66 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Material"
+
+class Store {
+  pub prop items : List, default: []
+  # `showDone`'s notify is named `filterChanged` to keep the QML
+  # vocabulary stable if more filter knobs are added later (they'd
+  # all fire one signal).
+  pub prop showDone : Bool, notify: :filterChanged, default: false
+  pub signal filterChanged
+
+  pub fn toggleFilter { showDone = !showDone }
+}
+
+view TodoRow(label: String, done: Bool) {
+  Row {
+    spacing: 8
+    Label { text: if done { "[x]" } else { "[ ]" } }
+    Label { text: label; opacity: if done { 0.5 } else { 1.0 } }
+  }
+}
+
+view Main {
+  ApplicationWindow {
+    width: 360
+    height: 320
+    visible: true
+    title: "Cute TODO"
+
+    Material.theme: Material.Light
+    Material.primary: Material.Indigo
+
+    Store {
+      id: theStore
+      items: [
+        { text: "buy milk", done: false },
+        { text: "walk dog", done: true },
+        { text: "ship cute v1", done: false }
+      ]
+      showDone: false
+    }
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 12
+
+      Row {
+        spacing: 8
+        Label { text: "show only done:" }
+        Switch {
+          checked: theStore.showDone
+          onClicked: theStore.toggleFilter()
+        }
+      }
+
+      for it in theStore.items {
+        TodoRow {
+          visible: if theStore.showDone { it.done } else { true }
+          label: it.text
+          done: it.done
+        }
+      }
+    }
+  }
+}

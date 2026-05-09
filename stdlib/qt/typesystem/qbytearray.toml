@@ -1,0 +1,25 @@
+# QByteArray: raw byte container — sized, mutable, parseable. C++
+# value type. The migration replaces the handcraft `class QByteArray`
+# block in qcore.qpi (which mis-classified it as QObject-derived) with
+# an `extern value` binding sourced from libclang. Parsing methods
+# (`toInt`, `toDouble`) carry Qt's `bool *ok = nullptr` out-parameter,
+# which `cute-qpi-gen` detects and `cute-codegen` lifts to
+# `Result<T, QtBoolError>` at the call site via the
+# `@lifted_bool_ok` IIFE wrapper.
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QByteArray"
+header = "${qt_core}/qbytearray.h"
+include = [
+  "size",
+  "isEmpty",
+  "toBase64",
+  "fromBase64",
+  "toInt",
+  "toDouble",
+]
+include_statics = true

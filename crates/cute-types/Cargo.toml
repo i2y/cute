@@ -1,0 +1,16 @@
+[package]
+name = "cute-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cute language: bidirectional type system and checker."
+
+[dependencies]
+cute-syntax.workspace = true
+cute-hir.workspace = true
+codespan-reporting.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+cute-binding.workspace = true

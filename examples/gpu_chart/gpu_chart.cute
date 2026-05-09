@@ -1,0 +1,41 @@
+# Bar/Line chart demo for the cute_ui (gpu_app) backend.
+# Both charts share `s.values`; clicking a button replaces the data
+# and the bars / line ease toward the new shape via the same animation
+# tick that drives focus rings and theme crossfades.
+
+class Store {
+  pub prop values : List<Float>, default: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0]
+
+  pub fn flat { values = [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0] }
+  pub fn ramp { values = [10.0, 25.0, 40.0, 55.0, 70.0, 85.0, 100.0] }
+  pub fn wave { values = [60.0, 90.0, 30.0, 80.0, 20.0, 70.0, 45.0] }
+  pub fn spike { values = [10.0, 10.0, 15.0, 95.0, 15.0, 10.0, 10.0] }
+}
+
+widget Main {
+  let s = Store()
+
+  Column {
+    Text { text: "Chart demo — bar and line over the same data" }
+    Row {
+      Button { text: "flat"; onClick: s.flat() }
+      Button { text: "ramp"; onClick: s.ramp() }
+      Button { text: "wave"; onClick: s.wave() }
+      Button { text: "spike"; onClick: s.spike() }
+    }
+    BarChart {
+      data: s.values
+      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      width: 480.0
+      height: 180.0
+    }
+    LineChart {
+      data: s.values
+      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      width: 480.0
+      height: 180.0
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute chart demo") }

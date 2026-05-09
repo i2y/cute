@@ -1,0 +1,26 @@
+# Cute as a general-purpose Qt language: a complete HTTP server in
+# under 25 lines, no C++ / no QML / no extra files.
+#
+# Run:    cute build http_hello.cute && ./http_hello
+# Test:   curl http://localhost:8080/
+#         curl http://localhost:8080/cute
+
+fn main {
+  server_app {
+    let server = QHttpServer.new()
+
+    server.route("/") {
+      "Hello from Cute!\n"
+    }
+
+    server.route("/cute") {
+      "Cute is a general-purpose Qt language.\n"
+    }
+
+    let tcp = QTcpServer.new()
+    tcp.listen()
+    server.bind(tcp)
+
+    println("listening on http://localhost:#{tcp.serverPort}")
+  }
+}

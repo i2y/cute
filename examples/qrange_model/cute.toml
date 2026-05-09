@@ -1,0 +1,7 @@
+# Cute QRangeModel demo. QtCore (which ships QRangeModel since
+# Qt 6.11) is linked unconditionally by the compiler — no extra
+# find_package needed; the `ModelList<T>` prop in the source pulls
+# in the necessary <QRangeModel> include itself.
+#
+# Requires Qt >= 6.11. Builds clean on Qt 6.11+ (homebrew on
+# macOS, openSUSE Tumbleweed on Linux).

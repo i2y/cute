@@ -1,0 +1,49 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cute-syntax",
+    "crates/cute-hir",
+    "crates/cute-types",
+    "crates/cute-lower",
+    "crates/cute-codegen",
+    "crates/cute-meta",
+    "crates/cute-binding",
+    "crates/cute-driver",
+    "crates/cute-cli",
+    "crates/cute-lsp",
+    "crates/cute-qpi-gen",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/i2y/cute"
+rust-version = "1.85"
+
+[workspace.dependencies]
+cute-syntax = { path = "crates/cute-syntax" }
+cute-hir = { path = "crates/cute-hir" }
+cute-types = { path = "crates/cute-types" }
+cute-lower = { path = "crates/cute-lower" }
+cute-codegen = { path = "crates/cute-codegen" }
+cute-meta = { path = "crates/cute-meta" }
+cute-binding = { path = "crates/cute-binding" }
+cute-driver = { path = "crates/cute-driver" }
+
+codespan-reporting = "0.12"
+insta = { version = "1.41", features = ["yaml"] }
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+toml = "0.8"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

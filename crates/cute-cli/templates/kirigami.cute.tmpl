@@ -1,0 +1,43 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "org.kde.kirigami" as Kirigami
+
+class Greeter {
+  pub prop greeting : String, default: ""
+
+  pub fn greet(who: String) {
+    greeting = "Hello, #{who}!"
+  }
+}
+
+view Main {
+  let greeter = Greeter()
+
+  Kirigami.ApplicationWindow {
+    title: "{NAME}"
+    width: 480
+    height: 320
+    visible: true
+
+    pageStack.initialPage: Kirigami.Page {
+      title: "{NAME}"
+
+      VBox {
+        anchors.fill: parent
+        anchors.margins: 16
+        spacing: 12
+
+        Label {
+          text: greeter.greeting
+          font.pixelSize: 24
+        }
+
+        Button {
+          text: "Greet"
+          highlighted: true
+          onClicked: greeter.greet("Kirigami")
+        }
+      }
+    }
+  }
+}

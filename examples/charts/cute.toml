@@ -1,0 +1,16 @@
+# Demo manifest: pulls in QtCharts (Qt 6 add-on module) for the
+# CMake link wiring. The QtCharts type surface itself is now in
+# Cute's stdlib (see stdlib/qt/qtcharts.qpi), so this file no
+# longer needs a local `[bindings] paths` entry — the stdlib
+# binding is loaded unconditionally by the driver.
+#
+# `cute.toml` remains the universal escape hatch into the C++
+# ecosystem — any library that ships a CMake `find_package(...)`
+# and a header can be wired up the same way.
+
+[cmake]
+find_package = ["Qt6 COMPONENTS Charts"]
+link_libraries = ["Qt6::Charts"]
+
+[cpp]
+includes = ["<QtCharts>"]

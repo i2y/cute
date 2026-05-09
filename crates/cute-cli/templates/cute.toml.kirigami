@@ -1,0 +1,11 @@
+# Kirigami app manifest. The QML imports are declared in the
+# .cute source via `use qml "..."`; this file carries the CMake
+# link wiring for KDE Frameworks 6.
+#
+# Requires KF6Kirigami to be discoverable to CMake — set
+# CMAKE_PREFIX_PATH=$HOME/CraftRoot on macOS, or install
+# extra-cmake-modules + kirigami via your distro on Linux.
+
+[cmake]
+find_package = ["KF6Kirigami"]
+link_libraries = ["KF6::Kirigami"]

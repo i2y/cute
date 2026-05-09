@@ -1,0 +1,25 @@
+# QDir: directory navigation + listing surface (`exists()`,
+# `entryList()`, `mkdir()`, ...). C++ value type — value-style
+# binding. Curated allowlist mirrors what the qcore.qpi handcraft
+# previously exposed.
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QDir"
+header = "${qt_core}/qdir.h"
+include = [
+  "exists",
+  "entryList",
+  "mkdir",
+  "rmdir",
+  "cd",
+  "cdUp",
+  "absolutePath",
+]
+# The header writes `mkdir(QString dirName)` / `cd(QString dirName)`;
+# the handcraft used `name` for the directory argument. Keep the
+# call-site spelling consistent.
+params = { mkdir = ["name"], rmdir = ["name"], cd = ["name"] }

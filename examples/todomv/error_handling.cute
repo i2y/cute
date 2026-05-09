@@ -1,0 +1,22 @@
+enum FileError {
+  notFound
+  permissionDenied
+  ioError(message: String)
+}
+
+fn open(path: String) !File {
+  try File.open(path)
+}
+
+fn loadConfig(path: String) !Config {
+  let file = try File.open(path)
+  let text = try file.readAll
+  try parse(text)
+}
+
+fn run {
+  case loadConfig("/etc/cute.conf") {
+    when ok(cfg)  { apply(cfg) }
+    when err(e)   { log(e) }
+  }
+}

@@ -1,0 +1,128 @@
+# Common Qt namespace enums — typesystem-driven binding via
+# `cute-qpi-gen`. The values are scraped directly from
+# `qnamespace.h`; Cute-side type names are the C++ enum's bare
+# name (`AlignmentFlag`, `Orientation`, ...) with `cpp_namespace =
+# "Qt"` so codegen lowers `AlignmentFlag.AlignLeft` to
+# `Qt::AlignLeft` at the call site.
+#
+# Used by code that wants symbolic enum values instead of magic
+# integers: `widget.alignment = AlignmentFlag.AlignHCenter`,
+# `case timer.timerType { when CoarseTimer { ... } }`, etc.
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}"]
+std = "c++17"
+
+[[classes]]
+name = "AlignmentFlag"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "Orientation"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "TimerType"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "CheckState"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "TextFormat"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "CursorShape"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "FocusPolicy"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "ScrollBarPolicy"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "MouseButton"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "Key"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+[[classes]]
+name = "WindowState"
+kind = "enum"
+header = "${qt_core}/qnamespace.h"
+cpp_namespace = "Qt"
+
+# ---- class-nested enums ---------------------------------------------------
+# Each Q_OBJECT-derived class declares enum types under its own
+# scope (`QSlider::TickPosition`, `QLineEdit::EchoMode`, etc.).
+# cute-qpi-gen's `find_enum` recursion picks them up; we list each
+# here so qpi-gen knows which Cute name + cpp_namespace to emit.
+
+[[classes]]
+name = "TickPosition"
+kind = "enum"
+header = "${qt_widgets}/qslider.h"
+cpp_namespace = "QSlider"
+
+[[classes]]
+name = "EchoMode"
+kind = "enum"
+header = "${qt_widgets}/qlineedit.h"
+cpp_namespace = "QLineEdit"
+
+[[classes]]
+name = "Shape"
+kind = "enum"
+header = "${qt_widgets}/qframe.h"
+cpp_namespace = "QFrame"
+
+[[classes]]
+name = "Shadow"
+kind = "enum"
+header = "${qt_widgets}/qframe.h"
+cpp_namespace = "QFrame"
+
+[[classes]]
+name = "SelectionMode"
+kind = "enum"
+header = "${qt_widgets}/qabstractitemview.h"
+cpp_namespace = "QAbstractItemView"
+
+[[classes]]
+name = "SelectionBehavior"
+kind = "enum"
+header = "${qt_widgets}/qabstractitemview.h"
+cpp_namespace = "QAbstractItemView"
+
+[[classes]]
+name = "ScrollMode"
+kind = "enum"
+header = "${qt_widgets}/qabstractitemview.h"
+cpp_namespace = "QAbstractItemView"

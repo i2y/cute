@@ -1,0 +1,77 @@
+# `init(params) { ... }` and `deinit { ... }` — Cute's user-defined
+# constructor and destructor. Mirrors Swift's `init` / `deinit`.
+#
+# Two flavors of class shown here:
+#
+#   ARC class (`arc X { ... }`): cute::Arc<T> drops on the last
+#   reference, so `deinit` runs at scope exit. Inits accept
+#   user-declared parameters; multiple inits = overload (selected
+#   by arity at the `T.new(args)` call site).
+#
+#   QObject class (default `class X { ... }`): `init` is callable
+#   as `T.new(args)` and synthesizes `T(<params>, QObject* parent =
+#   nullptr)` on the C++ side. `deinit` lowers to `~T() override`
+#   and runs whenever the parent tree (or an explicit `delete`)
+#   destroys the object.
+
+arc Token {
+  pub var label : String = ""
+  pub var weight : Int = 0
+  init(label: String) {                # one-arg overload
+    label = label
+    weight = 1
+  }
+
+  init(label: String, weight: Int) {   # two-arg overload
+    label = label
+    weight = weight
+  }
+
+  deinit {
+    println("dropped #{label} (weight=#{weight})")
+  }
+}
+
+class Counter {
+  pub var count : Int = 0
+  init {
+    count = 0
+    println("Counter created")
+  }
+
+  init(initial: Int) {
+    count = initial
+    println("Counter created with #{initial}")
+  }
+
+  deinit {
+    println("Counter dying (final count=#{count})")
+  }
+
+  pub fn bump {
+    count = count + 1
+  }
+}
+
+fn main {
+  cli_app {
+    # ARC: deinit fires reliably on scope exit.
+    let a = Token.new("alpha")
+    let b = Token.new("beta", 5)
+    println("a=(#{a.label},#{a.weight}) b=(#{b.label},#{b.weight})")
+
+    # QObject: init runs, ctor params are typed, parent auto-injected.
+    let zero = Counter.new()
+    zero.bump()
+    println("zero count = #{zero.count}")
+
+    let n = Counter.new(40)
+    n.bump()
+    n.bump()
+    println("n count = #{n.count}")
+    # QObject leak at top-level scope is a separate, pre-existing
+    # pitfall (see cute_language_gaps.md). Inside a class body
+    # `Counter.new(...)` would auto-parent to `this` and the deinit
+    # would chain on parent destruction.
+  }
+}

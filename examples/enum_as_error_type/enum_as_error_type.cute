@@ -1,0 +1,31 @@
+# Plain `enum` (no `error` keyword) usable in `!T` position.
+
+enum FileError {
+  NotFound
+  IoError(message: String)
+}
+
+fn parseInt(s: String) !Int {
+  if s == "" {
+    return FileError.NotFound()
+  }
+  if s == "42" {
+    return 42
+  }
+  return FileError.IoError("not a known number")
+}
+
+fn report(s: String) {
+  case parseInt(s) {
+    when ok(n)  { println("parsed: #{n}") }
+    when err(e) { println("error caught") }
+  }
+}
+
+fn main {
+  cli_app {
+    report("42")
+    report("")
+    report("hello")
+  }
+}

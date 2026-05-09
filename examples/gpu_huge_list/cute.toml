@@ -1,0 +1,2 @@
+# gpu_app projects need Qt 6.11+ and the CuteUI runtime, both of which
+# `cute build` resolves automatically. Run `cute install-cute-ui` once.

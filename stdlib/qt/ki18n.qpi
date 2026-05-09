@@ -1,0 +1,64 @@
+# KF6 KI18n — KDE's translation framework. Provides i18n() / i18nc()
+# (and ki18n() for deferred-resolution KLocalizedString objects)
+# that read .mo / .qm catalogs at runtime. Wraps gettext under
+# the hood but exposes a Qt-friendly API.
+#
+# In Cute, the convention is:
+#
+#   - For instant string production: KLocalizedString::i18n("Hello")
+#     returns the localized String. Call this anywhere a String is
+#     expected.
+#   - For deferred / formatted: build a KLocalizedString, .subs(...)
+#     in args, then .toString() at use site.
+#
+# i18n("Hello") is NOT a free function in KF6 — it's a #define
+# expanding to a KLocalizedString construction. Cute can't see
+# preprocessor macros, so users call the explicit
+# `KLocalizedString::i18n(...)` form (or wrap it in a Cute helper).
+#
+# Linking via cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6I18n"]
+#   link_libraries = ["KF6::I18n"]
+#
+#   [cpp]
+#   includes = ["<KLocalizedString>"]
+
+# KLocalizedString: a translation key + bound argument set, deferred
+# until `toString()` materialises the localized text. Most call sites
+# don't see this directly — they go through the convenience static
+# methods that return a String.
+class KLocalizedString {
+  fn isEmpty Bool
+  fn toString String
+  fn toString(language: String) String
+
+  # Substitution: each subs() call replaces the next %1, %2, ...
+  # placeholder. Returns a new KLocalizedString with the placeholder
+  # consumed, so the chain composes left-to-right.
+  fn subs(s: String) KLocalizedString
+  fn subsInt(value: Int) KLocalizedString
+  fn subsFloat(value: Float, fieldWidth: Int, format: String, precision: Int) KLocalizedString
+
+  # Static-style helpers. Cute treats them as instance methods on
+  # the binding; users call them as `KLocalizedString::i18n("...")`
+  # in C++ or via a binding-side helper.
+  fn i18n(text: String) String
+  fn i18nc(context: String, text: String) String
+  fn i18np(singular: String, plural: String, n: Int) String
+  fn i18ncp(context: String, singular: String, plural: String, n: Int) String
+
+  # Deferred-resolution variants. Return a KLocalizedString rather
+  # than a String so the caller can subs() arguments before
+  # materializing.
+  fn ki18n(text: String) KLocalizedString
+  fn ki18nc(context: String, text: String) KLocalizedString
+  fn ki18np(singular: String, plural: String) KLocalizedString
+
+  # Translation-domain machinery. Most apps call setApplicationDomain
+  # once at startup with their gettext catalog name.
+  fn setApplicationDomain(domain: String)
+  fn applicationDomain String
+  fn availableApplicationTranslations QStringList
+}

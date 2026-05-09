@@ -1,0 +1,48 @@
+# KF6 KNotifications — desktop notification framework. Binds to
+# the platform's notification system (xdg-portal / dbus on Linux,
+# native NSUserNotification on macOS, toast on Windows) via a
+# single uniform API.
+#
+# A notification is described declaratively by its event id (which
+# maps to a `.notifyrc` file shipped with the app) plus runtime
+# fields (title, text, icon, default action, urgency).
+#
+# Linking via cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6Notifications"]
+#   link_libraries = ["KF6::Notifications"]
+#
+#   [cpp]
+#   includes = ["<KNotification>"]
+
+# KNotification: one notification instance. Lifecycle: construct,
+# fill in fields, call `sendEvent()`. Notifications self-delete
+# after their event fires — no manual deleteLater needed.
+#
+# Urgency levels (`urgency` prop): 10=Low, 30=Normal, 50=High,
+# 70=Critical. The platform decides what to do with these (popup
+# duration, sound, screen-wakeup); the app just hints.
+class KNotification < QObject {
+  prop title : String
+  prop text : String
+  prop iconName : String
+  prop eventId : String
+  prop componentName : String
+  prop urgency : Int
+  prop defaultAction : String
+  prop actions : QStringList
+  prop hint : QStringList
+
+  signal activated(actionId: Int)
+  signal closed
+  signal ignored
+  signal defaultActivated
+
+  fn sendEvent
+  fn close
+  fn update
+  fn setActions(actions: QStringList)
+  fn addAction(label: String) QObject
+  fn setHint(name: String, value: QVariant)
+}

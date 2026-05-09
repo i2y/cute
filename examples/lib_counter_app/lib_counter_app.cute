@@ -1,0 +1,21 @@
+# Smoke test for the [cute_libraries] consumer side. Imports
+# LibCounter (declared under [cute_libraries] in cute.toml) and
+# exercises a few of its methods. Prints the count after each call.
+
+fn main {
+  cli_app {
+    let c = LibCounter.new()
+    println("initial: #{c.count}")
+
+    c.increment()
+    c.increment()
+    c.increment()
+    println("after 3x increment: #{c.count}")
+
+    c.decrement()
+    println("after decrement: #{c.count}")
+
+    c.reset()
+    println("after reset: #{c.count}")
+  }
+}

@@ -1,0 +1,25 @@
+# Built-in Qt 6 binding for QHttpServer (Qt::HttpServer module,
+# requires Qt 6.4+; bind() shape needs Qt 6.8+). Qt removed the
+# convenience `listen` overload in 6.8 in favour of explicit
+# QTcpServer + bind() composition - we model that path.
+
+class QTcpServer < QObject {
+  # `listen()` (no args) uses QHostAddress::Any + a system-assigned
+  # port; query `serverPort` to find which one was picked. A typed
+  # `listen(addr, port)` wants `QHostAddress`, which doesn't auto-
+  # convert from `String` in modern Qt - bind that explicitly when
+  # we have a QHostAddress wrapper.
+  fn listen Bool
+  fn serverPort Int
+}
+
+class QHttpServerRequest < QObject {
+}
+
+class QHttpServerResponse < QObject {
+}
+
+class QHttpServer < QObject {
+  fn route(path: String, handler: Handler) Bool
+  fn bind(server: QTcpServer) Bool
+}

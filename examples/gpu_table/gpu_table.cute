@@ -1,0 +1,55 @@
+# DataTable demo for the cute_ui (gpu_app) backend.
+# First Row inside DataTable becomes the header (stronger bg + thicker
+# divider underneath); subsequent Rows alternate stripe colors and get
+# a thin divider beneath each.
+
+class Person {
+  pub var name : String = ""
+  pub var age : Int = 0
+  pub var city : String = ""
+}
+
+class Store {
+  pub prop people : List<Person>, default: []
+
+  pub fn add(name: String, age: Int, city: String) {
+    let p = Person.new()
+    p.setName(name)
+    p.setAge(age)
+    p.setCity(city)
+    people.append(p)
+    # `.append(...)` doesn't fire the auto-emit; re-fire manually.
+    emit peopleChanged
+  }
+}
+
+widget Main {
+  let s = Store()
+
+  Column {
+    Text { text: "DataTable demo" }
+
+    Row {
+      Button { text: "+ Alice"; onClick: s.add("Alice", 30, "Tokyo") }
+      Button { text: "+ Bob"; onClick: s.add("Bob", 25, "Kyoto") }
+      Button { text: "+ Carol"; onClick: s.add("Carol", 41, "Osaka") }
+    }
+
+    DataTable {
+      Row {
+        Text { text: "Name" }
+        Text { text: "Age" }
+        Text { text: "City" }
+      }
+      for p in s.people {
+        Row {
+          Text { text: p.name }
+          Text { text: "#{p.age}" }
+          Text { text: p.city }
+        }
+      }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute DataTable demo") }

@@ -1,0 +1,23 @@
+# Self-recursive payload variants — Tree.Node points to two child Trees.
+
+enum Tree {
+  Leaf(value: Int)
+  Node(left: Tree, right: Tree)
+}
+
+fn sum(t: Tree) Int {
+  case t {
+    when Leaf(v)    { v }
+    when Node(l, r) { sum(l) + sum(r) }
+  }
+}
+
+fn main {
+  cli_app {
+    let t = Tree.Node(
+      Tree.Leaf(1),
+      Tree.Node(Tree.Leaf(2), Tree.Leaf(3))
+    )
+    println("#{sum(t)}")
+  }
+}

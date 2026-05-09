@@ -1,0 +1,39 @@
+# Cute async/await — C++20 coroutine end-to-end smoke.
+#
+# `async fn` lowers to a Qt 6.5+ coroutine returning QFuture<T>;
+# `await expr` lowers to `co_await expr`. cute_async.h provides the
+# missing `coroutine_traits<QFuture<T>>` specialization (Qt 6.11
+# doesn't ship one) plus `operator co_await(QFuture<T>)`.
+#
+# This demo uses `await` directly inside `cli_app`, which triggers
+# Cute's event-loop variant: the body lifts into a `QFuture<void>`
+# coroutine driven by QCoreApplication::exec, so suspensions resume
+# correctly when the awaited future delivers.
+#
+#   cute build examples/async_demo/async_demo.cute
+#   ./async_demo
+#     [main] kicking off async work
+#     [worker] producing 21
+#     [consume] awaiting produce()...
+#     [consume] got 21, doubling
+#     [main] await consume() = 42
+
+async fn produce(label: String) Future<Int> {
+  println("[#{label}] producing 21")
+  21
+}
+
+async fn consume Future<Int> {
+  println("[consume] awaiting produce()...")
+  let v = await produce("worker")
+  println("[consume] got #{v}, doubling")
+  v * 2
+}
+
+fn main(args: List) {
+  cli_app {
+    println("[main] kicking off async work")
+    let result = await consume()
+    println("[main] await consume() = #{result}")
+  }
+}

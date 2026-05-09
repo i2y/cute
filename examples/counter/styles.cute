@@ -1,0 +1,25 @@
+# Compile-time style palette. Each `style X { ... }` is a named bag
+# of (key, value) properties; `+` merges two bags with right-wins on
+# conflict, and `style Y = A + B` declares a reusable alias. None of
+# this exists at runtime - every reference is inlined into the view
+# at codegen time.
+#
+# `pub` exports each style across module boundaries. Without it the
+# style is private to this file.
+
+pub style Heading {
+  font.pixelSize: 28
+}
+
+pub style Caption {
+  font.pixelSize: 11
+  opacity: 0.55
+}
+
+pub style Centered {
+  anchors.horizontalCenter: parent.horizontalCenter
+}
+
+pub style HeadingCentered = Heading + Centered
+
+pub style CaptionCentered = Caption + Centered

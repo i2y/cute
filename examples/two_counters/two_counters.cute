@@ -1,0 +1,58 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Material"
+# Two modules each declare `pub class Counter`. Module-level
+# namespacing handles the simple-name collision: codegen mangles
+# both to `<module>__Counter` and qualified references in this view
+# route to the right one. Without module-level namespacing this
+# would have been a flat `duplicate top-level declaration` error.
+
+use model
+use viewmodel
+
+view Main {
+  ApplicationWindow {
+    width: 360
+    height: 220
+    visible: true
+    title: "Cute Two Counters"
+
+    Material.theme: Material.Light
+    Material.primary: Material.Indigo
+    Material.accent: Material.Indigo
+
+    model.Counter { id: a }
+    viewmodel.Counter { id: b }
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 12
+
+      Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "model.Counter: " + a.count
+        font.pixelSize: 22
+      }
+      Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "viewmodel.Counter: " + b.count
+        font.pixelSize: 22
+      }
+
+      Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 12
+
+        Button {
+          text: "+1 (model)"
+          onClicked: a.increment()
+        }
+        Button {
+          text: "+10 (viewmodel)"
+          highlighted: true
+          onClicked: b.step()
+        }
+      }
+    }
+  }
+}

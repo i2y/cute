@@ -1,0 +1,21 @@
+# Minimal JSON parse + read demo using the auto-generated qjson.qpi
+# binding (QJsonDocument / QJsonObject / QJsonArray / QJsonValue).
+
+fn main {
+  cli_app {
+    let raw = "{\"name\": \"cute\", \"version\": 1, \"keywords\": [\"qt\", \"native\"]}".toUtf8()
+    let doc = QJsonDocument.fromJson(raw)
+    let obj = doc.object()
+
+    let name = obj.value("name").toString()
+    let version = obj.value("version").toInt()
+    let kws = obj.value("keywords").toArray()
+
+    println("name:     #{name}")
+    println("version:  #{version}")
+    println("keywords: #{kws.size()}")
+    for i in 0..kws.size() {
+      println("  - #{kws.at(i).toString()}")
+    }
+  }
+}

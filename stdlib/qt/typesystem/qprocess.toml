@@ -1,0 +1,41 @@
+# QProcess: subprocess launcher. Q_OBJECT-derived; the auto-gen
+# pulls the started / finished / errorOccurred / readyRead* signals
+# from `Q_SIGNALS:`. Useful shape:
+#
+#   let p = QProcess.new()
+#   p.finished.connect { p.readAllStandardOutput() }
+#   p.start("git", ["status"])
+#
+# QIODevice-inherited methods (`close`, `readAllStandardOutput`,
+# `write`, ...) fall through to soft-pass at the type checker — same
+# treatment as QFile.
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QProcess"
+kind = "object"
+super_name = "QObject"
+header = "${qt_core}/qprocess.h"
+include = [
+  "start",
+  "startDetached",
+  "terminate",
+  "kill",
+  "waitForStarted",
+  "waitForFinished",
+  "exitCode",
+  "program",
+  "arguments",
+  "setProgram",
+  "setArguments",
+  "setWorkingDirectory",
+  "workingDirectory",
+  "readAllStandardOutput",
+  "readAllStandardError",
+]
+# `arguments` Qt header param often omits a name on overloads; pin
+# the user-visible spellings.
+params = { "setArguments(QStringList)" = ["arguments"], "setWorkingDirectory(String)" = ["dir"], "setProgram(String)" = ["program"] }

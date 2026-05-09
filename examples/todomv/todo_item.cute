@@ -1,0 +1,11 @@
+class TodoItem {
+  var text : String = ""
+  prop done : Bool, notify: :stateChanged
+
+  signal stateChanged
+
+  fn toggle {
+    done = !done
+    emit stateChanged
+  }
+}

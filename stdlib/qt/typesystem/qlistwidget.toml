@@ -1,0 +1,41 @@
+# Typesystem for `stdlib/qt/qlistwidget.qpi`. QListWidget +
+# QListWidgetItem — simple item-view widget that owns its rows.
+# Heavier-duty list/tree views (QListView + QAbstractItemModel)
+# stay external for now; QListWidget is fine for small static
+# or imperatively-built lists.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[type_map]
+# QListWidgetItem isn't a QObject (it's a value-ish row holder),
+# but Cute treats it as a class-form binding so methods that
+# return it (currentItem / item / takeItem) need a Cute-side
+# name to emit.
+"QListWidgetItem" = "QListWidgetItem"
+
+[[classes]]
+name = "QListWidgetItem"
+kind = "object"
+header = "${qt_widgets}/qlistwidget.h"
+comment = """
+QListWidgetItem — one row in a QListWidget. Not a QObject — Cute
+treats it as a class-form binding so user code can hold a
+reference to a returned item and read / write its fields.
+"""
+super_name = "QObject"
+include = []
+
+[[classes]]
+name = "QListWidget"
+kind = "object"
+header = "${qt_widgets}/qlistwidget.h"
+comment = """
+QListWidget — single-column item view that owns its rows.
+addItem / insertItem / takeItem for row management; signals fire
+on user interaction (itemClicked / itemDoubleClicked) and on
+selection changes (itemSelectionChanged / currentRowChanged).
+"""
+include = ["addItem", "insertItem", "takeItem", "currentItem", "item", "clear", "setCurrentRow", "row", "count"]

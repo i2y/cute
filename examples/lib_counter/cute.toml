@@ -1,0 +1,12 @@
+# Cute library demo — a simple reusable Counter QObject.
+#
+# `cute build lib_counter.cute` (run from this dir) reads the
+# [library] block below and produces a shared library + public
+# header + .qpi binding + cmake config, all installed under
+# ~/.cache/cute/libraries/LibCounter/0.1.0/<triple>/. Downstream
+# apps depend on it via [cute_libraries] deps = ["LibCounter"].
+
+[library]
+name = "LibCounter"
+version = "0.1.0"
+description = "Reusable Counter QObject for Cute apps"

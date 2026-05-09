@@ -1,0 +1,12 @@
+# A reusable Counter QObject distributed as a Cute library.
+# `cute build` (with cute.toml's [library] block present) emits a
+# shared lib + binding + cmake config so other Cute projects can
+# `use LibCounter` to get this class.
+
+pub class LibCounter {
+  pub prop count : Int, default: 0
+
+  pub fn increment { count = count + 1 }
+  pub fn decrement { count = count - 1 }
+  pub fn reset { count = 0 }
+}

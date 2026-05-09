@@ -1,0 +1,49 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+
+view StatCard(label: String, value: Int, accent: String) {
+  Rectangle {
+    width: 120
+    height: 80
+    radius: 8
+    color: accent
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 4
+
+      Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: label
+        color: "white"
+        font.pixelSize: 12
+        opacity: 0.85
+      }
+      Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "" + value
+        color: "white"
+        font.pixelSize: 28
+        font.bold: true
+      }
+    }
+  }
+}
+
+view Main {
+  ApplicationWindow {
+    width: 480
+    height: 200
+    visible: true
+    title: "Cute Cards"
+
+    Row {
+      anchors.centerIn: parent
+      spacing: 16
+
+      StatCard { label: "Wins"; value: 42; accent: "#4caf50" }
+      StatCard { label: "Losses"; value: 7; accent: "#f44336" }
+      StatCard { label: "Draws"; value: 3; accent: "#9e9e9e" }
+    }
+  }
+}

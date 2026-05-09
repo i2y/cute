@@ -1,0 +1,6 @@
+# Domain Counter — increments by 1.
+pub class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn increment { count = count + 1 }
+}

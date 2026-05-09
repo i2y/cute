@@ -1,0 +1,46 @@
+# Lifted CLI demo: typed flag parsing via QCommandLineParser.
+# `cute build cli_args.cute` produces a binary with -h / --help,
+# positional argument handling, and Result-based per-arg parsing.
+#
+#   ./cli_args 1 42 hello 0
+#     parsed: 1
+#     parsed: 42
+#     rejected: hello
+#     parsed: 0
+#
+#   ./cli_args --help
+#     (auto-generated help via QCommandLineParser)
+
+enum ArgError {
+  notInt(text: String)
+}
+
+fn parseInt(s: String) !Int {
+  if s == "0" { return 0 }
+  if s == "1" { return 1 }
+  if s == "42" { return 42 }
+  return ArgError.notInt(s)
+}
+
+fn report(s: String) {
+  case parseInt(s) {
+    when ok(n)  { println("parsed: #{n}") }
+    when err(e) { println("rejected: #{s}") }
+  }
+}
+
+fn main(args: List) {
+  cli_app {
+    let parser = QCommandLineParser.new()
+    parser.setApplicationDescription("Cute typed-args CLI demo")
+    parser.addHelpOption()
+    parser.addPositionalArgument("numbers", "numbers to try parsing as Int")
+    parser.process(args)
+
+    let positional = parser.positionalArguments
+    println("got #{positional.size} args:")
+    for a in positional {
+      report(a)
+    }
+  }
+}

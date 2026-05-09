@@ -1,0 +1,19 @@
+fn main {
+  server_app {
+    let server = QHttpServer.new()
+
+    server.route("/") {
+      "Hello from {NAME}!\n"
+    }
+
+    server.route("/health") {
+      "ok\n"
+    }
+
+    let tcp = QTcpServer.new()
+    tcp.listen()
+    server.bind(tcp)
+
+    println("listening on http://localhost:#{tcp.serverPort}")
+  }
+}

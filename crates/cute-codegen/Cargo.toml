@@ -1,0 +1,18 @@
+[package]
+name = "cute-codegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cute language: MIR -> C++ source emission (.h/.cpp pairs)."
+
+[dependencies]
+cute-syntax.workspace = true
+cute-hir.workspace = true
+cute-types.workspace = true
+cute-lower.workspace = true
+cute-meta.workspace = true
+codespan-reporting.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

@@ -1,0 +1,240 @@
+# Built-in Qt 6 binding for QtQuick.Controls (the QML control set).
+#
+# Cute view bodies use these elements as heads (`Button { ... }`,
+# `Label { ... }`, `ApplicationWindow { ... }`), but until now
+# `id`-based access (`myButton.checked` etc.) fell through as
+# External. With these bindings, members read/written via QML id
+# get real type-check coverage.
+#
+# This is a curated slice - the most commonly used controls and
+# their most commonly used members. Adding a property / method is
+# always backward compatible, so this binding can grow over time
+# without breaking demos.
+
+class ApplicationWindow {
+  prop title : String
+  prop visible : Bool
+  prop width : Int
+  prop height : Int
+  prop color : String
+
+  signal closing
+}
+
+class Window {
+  prop title : String
+  prop visible : Bool
+  prop width : Int
+  prop height : Int
+}
+
+class Button {
+  prop text : String
+  prop checked : Bool
+  prop checkable : Bool
+  prop enabled : Bool
+  prop highlighted : Bool
+  prop flat : Bool
+  prop icon : String
+
+  signal clicked
+  signal pressed
+  signal released
+  signal toggled(checked: Bool)
+
+  fn toggle
+}
+
+class Label {
+  prop text : String
+  prop color : String
+  prop elide : Int
+  prop wrapMode : Int
+  prop horizontalAlignment : Int
+  prop verticalAlignment : Int
+}
+
+class Switch {
+  prop checked : Bool
+  prop text : String
+  prop enabled : Bool
+
+  signal toggled(checked: Bool)
+  signal clicked
+
+  fn toggle
+}
+
+class CheckBox {
+  prop checked : Bool
+  prop text : String
+  prop tristate : Bool
+
+  signal toggled(checked: Bool)
+  signal clicked
+}
+
+class TextField {
+  prop text : String
+  prop placeholderText : String
+  prop echoMode : Int
+  prop readOnly : Bool
+  prop selectedText : String
+  prop cursorPosition : Int
+
+  signal accepted
+  signal editingFinished
+  signal textChanged
+
+  fn clear
+  fn copy
+  fn paste
+  fn selectAll
+}
+
+class TextArea {
+  prop text : String
+  prop placeholderText : String
+  prop readOnly : Bool
+  prop wrapMode : Int
+
+  signal textChanged
+
+  fn clear
+  fn append(text: String)
+}
+
+class Slider {
+  prop value : Float
+  prop from : Float
+  prop to : Float
+  prop stepSize : Float
+  prop orientation : Int
+
+  signal moved
+  signal valueChanged
+}
+
+class ProgressBar {
+  prop value : Float
+  prop from : Float
+  prop to : Float
+  prop indeterminate : Bool
+}
+
+class ComboBox {
+  prop currentIndex : Int
+  prop currentText : String
+  prop count : Int
+  prop model : QObject
+
+  signal activated(index: Int)
+  signal currentIndexChanged
+  signal currentTextChanged
+}
+
+class SpinBox {
+  prop value : Int
+  prop from : Int
+  prop to : Int
+  prop stepSize : Int
+
+  signal valueChanged
+}
+
+class Item {
+  prop x : Float
+  prop y : Float
+  prop width : Float
+  prop height : Float
+  prop visible : Bool
+  prop opacity : Float
+  prop enabled : Bool
+  prop z : Float
+  prop rotation : Float
+  prop scale : Float
+}
+
+class Rectangle < Item {
+  prop color : String
+  prop border : QObject
+  prop radius : Float
+}
+
+class Row < Item {
+  prop spacing : Float
+}
+
+class Column < Item {
+  prop spacing : Float
+}
+
+class Grid < Item {
+  prop spacing : Float
+  prop rows : Int
+  prop columns : Int
+}
+
+class GridLayout < Item {
+  prop rowSpacing : Float
+  prop columnSpacing : Float
+  prop rows : Int
+  prop columns : Int
+}
+
+class Repeater {
+  prop model : QObject
+  prop count : Int
+}
+
+class ListView < Item {
+  prop model : QObject
+  prop currentIndex : Int
+  prop count : Int
+  prop orientation : Int
+
+  fn positionViewAtBeginning
+  fn positionViewAtEnd
+  fn positionViewAtIndex(index: Int, mode: Int)
+}
+
+class ScrollView < Item {
+  prop contentWidth : Float
+  prop contentHeight : Float
+}
+
+class StackView < Item {
+  prop currentItem : Item
+  prop depth : Int
+
+  fn push(item: QObject)
+  fn pop
+  fn replace(item: QObject)
+  fn clear
+}
+
+class Dialog {
+  prop title : String
+  prop visible : Bool
+  prop modal : Bool
+
+  signal accepted
+  signal rejected
+
+  fn open
+  fn close
+  fn accept
+  fn reject
+}
+
+class MessageDialog {
+  prop title : String
+  prop text : String
+  prop informativeText : String
+
+  signal accepted
+  signal rejected
+
+  fn open
+  fn close
+}

@@ -1,0 +1,61 @@
+# ScrollView demo for the cute_ui (gpu_app) backend.
+# Same scroll mechanics as ListView (wheel events, drag thumb), but
+# without the surface card so it composes inside any layout.
+# Add a row, then mouse-wheel inside the scroll area to scroll.
+
+class Item {
+  pub var label : String = ""
+}
+
+class Store {
+  pub prop items : List<Item>, default: []
+
+  fn appendOne {
+    let it = Item.new()
+    it.setLabel("Row ##{items.size() + 1} — scroll me!")
+    items.append(it)
+  }
+
+  # Mutations through `.append(...)` don't fire the auto-emit (only
+  # whole-value writes `items = ...` do), so re-fire manually after
+  # each batch.
+  pub fn add {
+    appendOne()
+    emit itemsChanged
+  }
+
+  pub fn addMany {
+    for i in 0..60 {
+      appendOne()
+    }
+    emit itemsChanged
+  }
+}
+
+widget Main {
+  let s = Store()
+
+  Column {
+    Text { text: "Scroll demos — click '+ 60 rows', then wheel inside each" }
+    Row {
+      Button { text: "+ row"; onClick: s.add() }
+      Button { text: "+ 60 rows"; onClick: s.addMany() }
+    }
+
+    Text { text: "Vertical (mouse-wheel up/down):" }
+    ScrollView {
+      for it in s.items {
+        Text { text: it.label }
+      }
+    }
+
+    Text { text: "Horizontal (shift+wheel or trackpad swipe):" }
+    HScrollView {
+      for it in s.items {
+        Text { text: it.label }
+      }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute ScrollView demo") }

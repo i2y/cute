@@ -1,0 +1,31 @@
+# Typesystem for `stdlib/qt/qsettings.qpi`. QSettings is a
+# QObject-derived value-store wrapper (registry on Windows, plist
+# on macOS, INI/conf elsewhere) with a key-value API plus a few
+# group / array primitives.
+
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QSettings"
+kind = "object"
+header = "${qt_core}/qsettings.h"
+comment = """
+QSettings — persistent application settings (registry on Windows,
+plist on macOS, INI/conf elsewhere). The default constructor uses
+the application's organizationName + applicationName for the
+storage key, so QCoreApplication::setOrganizationName() should be
+called before instantiating one.
+"""
+include = [
+  "value", "setValue",
+  "remove", "contains",
+  "allKeys", "childKeys", "childGroups",
+  "beginGroup", "endGroup", "group",
+  "beginReadArray", "beginWriteArray", "endArray", "setArrayIndex",
+  "sync", "clear",
+  "fileName", "isWritable",
+  "fallbacksEnabled", "setFallbacksEnabled",
+]

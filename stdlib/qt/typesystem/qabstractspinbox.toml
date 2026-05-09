@@ -1,0 +1,20 @@
+# Typesystem for `stdlib/qt/qabstractspinbox.qpi`. Q_OBJECT base
+# of QSpinBox / QDoubleSpinBox / QDateTimeEdit. Carries the
+# read-only / wrapping / button-symbols / step-by primitives all
+# spin-box subclasses share.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QAbstractSpinBox"
+kind = "object"
+header = "${qt_widgets}/qabstractspinbox.h"
+comment = """
+QAbstractSpinBox — Q_OBJECT base for QSpinBox / QDoubleSpinBox /
+QDateTimeEdit. Cute prop synth covers readOnly / wrapping /
+buttonSymbols / specialValueText.
+"""
+include = ["clear", "stepBy", "stepUp", "stepDown", "selectAll", "interpretText"]

@@ -1,0 +1,33 @@
+# Demonstrates `case x { when ok(v) { ... } when err(e) { ... } }` as
+# a regular language feature (not a view/widget special form).
+# Same syntax works in fn bodies, class methods, widget bodies.
+
+enum ParseError {
+  empty
+  badFormat(reason: String)
+}
+
+fn parseInt(s: String) !Int {
+  if s == "" {
+    return ParseError.empty()
+  }
+  if s == "42" {
+    return 42
+  }
+  return ParseError.badFormat("not a known number")
+}
+
+fn report(s: String) {
+  case parseInt(s) {
+    when ok(n)  { println("parsed: #{n}") }
+    when err(e) { println("error caught") }
+  }
+}
+
+fn main {
+  cli_app {
+    report("42")
+    report("")
+    report("hello")
+  }
+}

@@ -1,0 +1,37 @@
+# ProgressBar + Spinner demo for cute_ui (gpu_app).
+
+class State {
+  pub prop progress : Float, default: 0.0
+
+  pub fn add10 {
+    progress = progress + 0.10
+    if progress > 1.0 { progress = 1.0 }
+  }
+
+  pub fn reset { progress = 0.0 }
+}
+
+widget Main {
+  let state = State()
+
+  Column {
+    Text { text: "ProgressBar + Spinner — animated indicators" }
+
+    Row {
+      Button { text: "+10%"; onClick: state.add10() }
+      Button { text: "reset"; onClick: state.reset() }
+    }
+
+    Text { text: "Progress: #{state.progress}" }
+    ProgressBar {
+      value: state.progress
+      width: 480.0
+      height: 16.0
+    }
+
+    Text { text: "Indeterminate spinner (always running):" }
+    Spinner { width: 48.0; height: 48.0 }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute progress demo") }

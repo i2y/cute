@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE language SYSTEM "language.dtd">
+<!--
+  Cute language syntax definition for Kate / KSyntaxHighlighting.
+
+  Authoritative source:
+    https://github.com/i2y/cute/blob/main/extensions/kate-cute/cute.xml
+  Install:
+    cute install-kate    (drops this file under
+                          $XDG_DATA_HOME/org.kde.syntax-highlighting/syntax/
+                          on Linux, ~/Library/Application Support/...
+                          on macOS)
+-->
+<language name="Cute"
+          version="1"
+          kateversion="5.0"
+          section="Sources"
+          extensions="*.cute;*.qpi"
+          author="Yasushi Itoh"
+          license="MIT">
+  <highlighting>
+    <list name="keywords-decl">
+      <item>class</item>
+      <item>struct</item>
+      <item>enum</item>
+      <item>flags</item>
+      <item>arc</item>
+      <item>trait</item>
+      <item>impl</item>
+      <item>view</item>
+      <item>widget</item>
+      <item>style</item>
+      <item>fn</item>
+      <item>prop</item>
+      <item>signal</item>
+      <item>slot</item>
+      <item>init</item>
+      <item>deinit</item>
+      <item>let</item>
+      <item>var</item>
+      <item>test</item>
+      <item>error</item>
+      <item>state</item>
+      <item>store</item>
+      <item>suite</item>
+      <item>type</item>
+    </list>
+    <list name="keywords-control">
+      <item>if</item>
+      <item>else</item>
+      <item>case</item>
+      <item>when</item>
+      <item>for</item>
+      <item>while</item>
+      <item>break</item>
+      <item>continue</item>
+      <item>return</item>
+      <item>try</item>
+      <item>emit</item>
+      <item>batch</item>
+      <item>async</item>
+      <item>await</item>
+      <item>in</item>
+      <item>of</item>
+    </list>
+    <list name="keywords-modifier">
+      <item>pub</item>
+      <item>extern</item>
+      <item>value</item>
+      <item>weak</item>
+      <item>owned</item>
+      <item>unowned</item>
+      <item>consuming</item>
+      <item>escaping</item>
+      <item>readonly</item>
+      <item>default</item>
+      <item>notify</item>
+      <item>constant</item>
+      <item>bindable</item>
+      <item>bind</item>
+      <item>fresh</item>
+    </list>
+    <list name="keywords-import">
+      <item>use</item>
+    </list>
+    <list name="constants">
+      <item>true</item>
+      <item>false</item>
+      <item>nil</item>
+      <item>self</item>
+      <item>ok</item>
+      <item>err</item>
+      <item>some</item>
+      <item>none</item>
+    </list>
+    <list name="builtin-types">
+      <item>Int</item>
+      <item>Float</item>
+      <item>Bool</item>
+      <item>String</item>
+      <item>Char</item>
+      <item>Byte</item>
+      <item>ByteArray</item>
+      <item>Date</item>
+      <item>Time</item>
+      <item>DateTime</item>
+      <item>Url</item>
+      <item>Regex</item>
+      <item>List</item>
+      <item>Map</item>
+      <item>Set</item>
+      <item>Hash</item>
+      <item>Future</item>
+      <item>Slice</item>
+      <item>ModelList</item>
+      <item>Void</item>
+    </list>
+
+    <contexts>
+      <context name="Normal" attribute="Normal Text" lineEndContext="#stay">
+        <keyword attribute="Decl" context="#stay" String="keywords-decl"/>
+        <keyword attribute="Keyword" context="#stay" String="keywords-control"/>
+        <keyword attribute="Modifier" context="#stay" String="keywords-modifier"/>
+        <keyword attribute="Import" context="#stay" String="keywords-import"/>
+        <keyword attribute="Constant" context="#stay" String="constants"/>
+        <keyword attribute="Type" context="#stay" String="builtin-types"/>
+
+        <DetectChar attribute="Comment" context="LineComment" char="#"/>
+        <DetectChar attribute="String" context="String" char="&quot;"/>
+
+        <RegExpr attribute="Symbol" context="#stay" String=":[A-Za-z_][A-Za-z0-9_]*"/>
+        <RegExpr attribute="Number" context="#stay" String="\b0[xX][0-9A-Fa-f][0-9A-Fa-f_]*\b"/>
+        <RegExpr attribute="Number" context="#stay" String="\b0[bB][01][01_]*\b"/>
+        <RegExpr attribute="Number" context="#stay" String="\b\d[\d_]*\.\d[\d_]*([eE][+-]?\d+)?\b"/>
+        <RegExpr attribute="Number" context="#stay" String="\b\d[\d_]*\b"/>
+
+        <RegExpr attribute="Type" context="#stay" String="\b[A-Z][A-Za-z0-9_]*\b"/>
+      </context>
+
+      <context name="LineComment" attribute="Comment" lineEndContext="#pop"/>
+
+      <context name="String" attribute="String" lineEndContext="#stay">
+        <DetectChar attribute="String" context="#pop" char="&quot;"/>
+        <RegExpr attribute="String Char" context="#stay" String="\\(x[0-9A-Fa-f]{2}|u\{[0-9A-Fa-f]+\}|.)"/>
+        <Detect2Chars attribute="Interpolation" context="StringInterp" char0="#" char1="{"/>
+      </context>
+
+      <context name="StringInterp" attribute="Normal Text" lineEndContext="#stay">
+        <DetectChar attribute="Interpolation" context="#pop" char="}"/>
+        <IncludeRules context="Normal"/>
+      </context>
+    </contexts>
+
+    <itemDatas>
+      <itemData name="Normal Text" defStyleNum="dsNormal"/>
+      <itemData name="Decl"        defStyleNum="dsKeyword"     bold="1"/>
+      <itemData name="Keyword"     defStyleNum="dsControlFlow" bold="1"/>
+      <itemData name="Modifier"    defStyleNum="dsKeyword"/>
+      <itemData name="Import"      defStyleNum="dsImport"/>
+      <itemData name="Constant"    defStyleNum="dsConstant"    bold="1"/>
+      <itemData name="Type"        defStyleNum="dsDataType"/>
+      <itemData name="Comment"     defStyleNum="dsComment"/>
+      <itemData name="String"      defStyleNum="dsString"/>
+      <itemData name="String Char" defStyleNum="dsChar"/>
+      <itemData name="Symbol"      defStyleNum="dsBaseN"/>
+      <itemData name="Number"      defStyleNum="dsDecVal"/>
+      <itemData name="Interpolation" defStyleNum="dsOperator" bold="1"/>
+    </itemDatas>
+  </highlighting>
+
+  <general>
+    <comments>
+      <comment name="singleLine" start="#"/>
+    </comments>
+    <keywords casesensitive="1"/>
+  </general>
+</language>

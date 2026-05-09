@@ -1,0 +1,311 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Cute",
+  "scopeName": "source.cute",
+  "fileTypes": ["cute", "qpi"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#symbol" },
+    { "include": "#declaration" },
+    { "include": "#use-statement" },
+    { "include": "#keyword" },
+    { "include": "#constant" },
+    { "include": "#type" },
+    { "include": "#operator" },
+    { "include": "#punctuation" },
+    { "include": "#identifier" }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.cute",
+          "begin": "(?<!\")#(?!\\{)",
+          "end": "$",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.comment.cute" }
+          }
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.cute",
+          "begin": "\"",
+          "end": "\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.cute" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.cute" }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.cute",
+              "match": "\\\\(x[0-9A-Fa-f]{2}|u\\{[0-9A-Fa-f]+\\}|.)"
+            },
+            {
+              "name": "meta.embedded.line.cute",
+              "begin": "#\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.embedded.begin.cute" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.embedded.end.cute" }
+              },
+              "patterns": [
+                { "include": "#comment" },
+                { "include": "#string" },
+                { "include": "#number" },
+                { "include": "#symbol" },
+                { "include": "#keyword" },
+                { "include": "#constant" },
+                { "include": "#type" },
+                { "include": "#operator" },
+                { "include": "#punctuation" },
+                { "include": "#identifier" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.cute",
+          "match": "\\b\\d[\\d_]*\\.\\d[\\d_]*([eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.hex.cute",
+          "match": "\\b0[xX][0-9A-Fa-f][0-9A-Fa-f_]*\\b"
+        },
+        {
+          "name": "constant.numeric.binary.cute",
+          "match": "\\b0[bB][01][01_]*\\b"
+        },
+        {
+          "name": "constant.numeric.integer.cute",
+          "match": "\\b\\d[\\d_]*\\b"
+        }
+      ]
+    },
+    "symbol": {
+      "name": "constant.other.symbol.cute",
+      "match": "(?<![A-Za-z0-9_:])(:)([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "punctuation.definition.symbol.cute" },
+        "2": { "name": "constant.other.symbol.name.cute" }
+      }
+    },
+    "constant": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.cute",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.nil.cute",
+          "match": "\\b(nil)\\b"
+        },
+        {
+          "name": "variable.language.self.cute",
+          "match": "\\b(self)\\b"
+        }
+      ]
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "name": "keyword.control.cute",
+          "match": "\\b(if|else|case|when|for|while|break|continue|return|try|emit|batch|async|await)\\b"
+        },
+        {
+          "name": "storage.type.cute",
+          "match": "\\b(class|struct|arc|trait|impl|view|widget|style|fn|prop|signal|slot|init|deinit|let|var|test|error|enum)\\b"
+        },
+        {
+          "name": "storage.modifier.cute",
+          "match": "\\b(pub|extern|value|escaping|consuming|weak|owned|unowned|readonly)\\b"
+        },
+        {
+          "name": "storage.modifier.uncopyable.cute",
+          "match": "~Copyable\\b"
+        },
+        {
+          "name": "keyword.other.use.cute",
+          "match": "\\b(use|import)\\b"
+        }
+      ]
+    },
+    "use-statement": {
+      "patterns": [
+        {
+          "match": "\\b(use)\\s+(qml)\\s+(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "keyword.other.use.cute" },
+            "2": { "name": "keyword.other.qml.cute" },
+            "3": { "name": "string.quoted.double.cute" }
+          }
+        },
+        {
+          "match": "\\b(use)\\s+([A-Za-z_][A-Za-z0-9_.]*)",
+          "captures": {
+            "1": { "name": "keyword.other.use.cute" },
+            "2": { "name": "entity.name.namespace.cute" }
+          }
+        }
+      ]
+    },
+    "declaration": {
+      "patterns": [
+        {
+          "comment": "Type / element declarations: class Foo, struct Foo, view Main, widget Main, arc Foo, trait Foo, style Foo, error Foo",
+          "match": "\\b(class|struct|arc|trait|view|widget|style|error|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.cute" },
+            "2": { "name": "entity.name.type.cute" }
+          }
+        },
+        {
+          "comment": "impl Trait for Type",
+          "match": "\\b(impl)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(for)\\s+([A-Za-z_][A-Za-z0-9_]*))?",
+          "captures": {
+            "1": { "name": "storage.type.cute" },
+            "2": { "name": "entity.name.type.cute" },
+            "3": { "name": "keyword.control.cute" },
+            "4": { "name": "entity.name.type.cute" }
+          }
+        },
+        {
+          "comment": "fn name / pub fn name",
+          "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.cute" },
+            "2": { "name": "entity.name.function.cute" }
+          }
+        },
+        {
+          "comment": "test fn name (test framework)",
+          "match": "\\b(test)\\s+(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.cute" },
+            "2": { "name": "storage.type.cute" },
+            "3": { "name": "entity.name.function.cute" }
+          }
+        },
+        {
+          "comment": "prop / signal / slot member name",
+          "match": "\\b(prop|signal|slot)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.cute" },
+            "2": { "name": "variable.other.member.cute" }
+          }
+        },
+        {
+          "comment": "let / var binding name",
+          "match": "\\b(let|var)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.cute" },
+            "2": { "name": "variable.other.cute" }
+          }
+        }
+      ]
+    },
+    "type": {
+      "patterns": [
+        {
+          "name": "support.type.builtin.cute",
+          "match": "\\b(Int|Int8|Int16|Int32|Int64|UInt|UInt8|UInt16|UInt32|UInt64|Float|Float32|Float64|Bool|String|ByteArray|Char|Void|List|Map|Set|Tuple|Result|Option|Arc|Weak|Unowned|ModelList|QObject|QString|QByteArray|QStringList|QVariant|QUrl|QDateTime|QDate|QTime)\\b"
+        },
+        {
+          "comment": "PascalCase identifiers — heuristic for user-defined types.",
+          "name": "entity.name.type.cute",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "operator": {
+      "patterns": [
+        {
+          "name": "keyword.operator.range.cute",
+          "match": "\\.\\.[<=]?|\\.\\."
+        },
+        {
+          "name": "keyword.operator.assignment.cute",
+          "match": "(\\+=|-=|\\*=|/=|%=|=)"
+        },
+        {
+          "name": "keyword.operator.comparison.cute",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.logical.cute",
+          "match": "(&&|\\|\\||!)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.cute",
+          "match": "(\\+|-|\\*|/|%)"
+        },
+        {
+          "name": "keyword.operator.optional.cute",
+          "match": "\\?"
+        },
+        {
+          "name": "keyword.operator.cute",
+          "match": "(->|=>|::|\\|)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.cute",
+          "match": "[{}]"
+        },
+        {
+          "name": "punctuation.section.brackets.cute",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.section.parens.cute",
+          "match": "[()]"
+        },
+        {
+          "name": "punctuation.separator.cute",
+          "match": "[,.]"
+        },
+        {
+          "name": "punctuation.separator.key-value.cute",
+          "match": ":"
+        }
+      ]
+    },
+    "identifier": {
+      "patterns": [
+        {
+          "comment": "Method / function calls: ident followed by `(`.",
+          "match": "([a-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.call.cute" }
+          }
+        },
+        {
+          "comment": "QML element header: `Foo {` — capture as element name.",
+          "match": "([A-Z][A-Za-z0-9_]*)(?=\\s*\\{)",
+          "captures": {
+            "1": { "name": "entity.name.type.element.cute" }
+          }
+        },
+        {
+          "name": "variable.other.cute",
+          "match": "\\b[a-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

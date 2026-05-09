@@ -1,0 +1,11 @@
+# Consumer demo for the LibCounter Cute library.
+#
+# Build LibCounter once via `cute build` from
+# examples/lib_counter/, then build this CLI app — the [cute_libraries]
+# block makes `cute build` resolve LibCounter's installed .qpi
+# binding (so `LibCounter` is visible in source) and adds
+# `find_package(LibCounter)` + `target_link_libraries(... LibCounter::LibCounter)`
+# to the generated CMakeLists automatically.
+
+[cute_libraries]
+deps = ["LibCounter"]

@@ -1,0 +1,14 @@
+# Cute project manifest. Add sections as you grow the project:
+#
+#   [sources]
+#   paths = ["model.cute", "styles.cute"]   # additional .cute files
+#
+#   [bindings]
+#   paths = ["bindings/spdlog.qpi"]         # external C++ library bindings
+#
+#   [cmake]
+#   find_package = ["Qt6 COMPONENTS Charts"]
+#   link_libraries = ["Qt6::Charts"]
+#
+#   [cpp]
+#   includes = ["<QtCharts>"]

@@ -1,0 +1,62 @@
+# Showcase of the cute_ui (gpu_app) backend: TextField + Image + ListView,
+# all driven through the Qt 6.11 Canvas Painter Tech Preview module.
+#
+# Build / run:
+#   cute install-cute-ui      # one-time, installs the runtime locally
+#   cute build gpu_notes.cute
+#   ./gpu_notes
+#
+# Cmd/Ctrl+T toggles the dark/light theme at runtime.
+
+class Note {
+  pub var text : String = ""
+}
+
+class Store {
+  pub prop draft : String, default: ""
+  pub prop notes : List<Note>, default: []
+
+  pub fn updateDraft(t: String) { draft = t }
+
+  pub fn add {
+    if draft.isEmpty() { return }
+    let n = Note.new()
+    n.setText(draft)
+    notes.append(n)
+    draft = ""
+    # `notes.append(...)` doesn't fire the auto-emit (only whole-value
+    # writes do), so re-fire manually for QML/cute_ui to re-render.
+    emit notesChanged
+  }
+}
+
+widget Main {
+  let s = Store()
+
+  Column {
+    Image { source: "logo.png"; width: 80.0; height: 80.0 }
+    Text { text: "Cute notes — TextField + Image + ListView" }
+
+    Row {
+      TextField {
+        text: s.draft
+        placeholder: "Type a note and press Add..."
+        onTextChanged: s.updateDraft(text)
+      }
+      TextField {
+        placeholder: "Tab between fields"
+      }
+      Button { text: "Add"; onClick: s.add() }
+    }
+
+    Text { text: "Notes (#{s.notes.size()}):" }
+
+    ListView {
+      for n in s.notes {
+        Text { text: n.text }
+      }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute notes (gpu_app)", theme: light) }

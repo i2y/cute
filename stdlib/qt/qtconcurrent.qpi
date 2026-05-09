@@ -1,0 +1,53 @@
+# QtConcurrent — high-level parallel-loop / future helpers. Real
+# Qt models these as free functions in the QtConcurrent namespace
+# (`QtConcurrent::run`, `QtConcurrent::map`, etc.). Cute's binding
+# format only models classes today, so this file uses a pseudoclass:
+# user code reads as `QtConcurrent.run(...)`, and codegen lowers
+# `T.method` to `T::method` for static-style calls — which is
+# exactly the C++ shape Qt expects.
+#
+# Caveat: the QFuture<T> shape isn't expressible with Cute's current
+# generics surface (binding parser doesn't accept `class QFuture<T>`),
+# so QFuture is bound as a non-generic placeholder. The futures-y
+# ergonomics are usable: `result()`, `isFinished()`, `waitForFinished()`.
+
+class QFuture {
+  fn isCanceled Bool
+  fn isFinished Bool
+  fn isPaused Bool
+  fn isRunning Bool
+  fn isStarted Bool
+  fn cancel
+  fn pause
+  fn resume
+  fn waitForFinished
+  fn progressValue Int
+  fn progressMinimum Int
+  fn progressMaximum Int
+}
+
+class QFutureWatcher < QObject {
+  signal finished
+  signal canceled
+  signal paused
+  signal resumed
+  signal started
+  signal progressValueChanged(progress: Int)
+  signal progressTextChanged(text: String)
+
+  fn setFuture(future: QFuture)
+  fn future QFuture
+  fn cancel
+  fn pause
+  fn resume
+  fn waitForFinished
+  fn isFinished Bool
+  fn isRunning Bool
+}
+
+# Pseudoclass: namespace functions modelled as static-style methods.
+# Calls like `QtConcurrent.run(callable)` lower to
+# `QtConcurrent::run(callable)` in C++ — exactly the right shape.
+class QtConcurrent {
+  fn run(callable: QObject) QFuture
+}

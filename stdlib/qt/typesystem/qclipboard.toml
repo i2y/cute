@@ -1,0 +1,58 @@
+# QClipboard + QMimeData: cross-platform clipboard surface.
+# QClipboard is the (singleton-via-QGuiApplication) Q_OBJECT manager;
+# QMimeData is the value-shaped (but Q_OBJECT) container the
+# clipboard holds. Auto-loaded by cute-binding so user code can
+# write `QGuiApplication.clipboard().setText("hi")` without a
+# per-app .qpi.
+#
+# `QClipboard::Mode` (Clipboard / Selection / FindBuffer) flows
+# through as `Int` until we add a typesystem entry for the enum.
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}"]
+std = "c++17"
+
+[[classes]]
+name = "QMimeData"
+kind = "object"
+super_name = "QObject"
+header = "${qt_core}/qmimedata.h"
+include = [
+  "urls",
+  "setUrls",
+  "hasUrls",
+  "text",
+  "setText",
+  "hasText",
+  "html",
+  "setHtml",
+  "hasHtml",
+  "data",
+  "setData",
+  "removeFormat",
+  "hasFormat",
+  "formats",
+  "clear",
+]
+params = { "data(String)" = ["mimetype"], "setData(String,QByteArray)" = ["mimetype", "data"], "removeFormat(String)" = ["mimetype"], "hasFormat(String)" = ["mimetype"] }
+
+[[classes]]
+name = "QClipboard"
+kind = "object"
+super_name = "QObject"
+header = "${qt_gui}/qclipboard.h"
+include = [
+  "clear",
+  "supportsSelection",
+  "supportsFindBuffer",
+  "ownsSelection",
+  "ownsClipboard",
+  "ownsFindBuffer",
+  "text",
+  "setText",
+  "setMimeData",
+]
+# `setText(const QString &, Mode mode = Clipboard)` — the leading
+# QString param has no name in the header. Spell it out so the call
+# site reads `clipboard.setText(text)` rather than `setText(_)`.
+params = { "setText(String)" = ["text"], "setText(String,Int)" = ["text", "mode"] }

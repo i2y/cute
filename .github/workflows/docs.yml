@@ -1,0 +1,54 @@
+name: docs
+
+# Build the Zensical docs site (`just docs-build` → website/build/)
+# and deploy it to GitHub Pages on every push to main.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages deploy needs `pages: write` + OIDC `id-token: write`.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; in-flight runs queue rather than
+# clobber.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv (provides Python 3.14 + pip)
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+
+      - name: Build docs
+        run: just docs-build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: website/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

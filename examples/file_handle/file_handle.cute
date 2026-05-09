@@ -1,0 +1,47 @@
+# Linear types via `~Copyable` + `consuming` params.
+#
+# `arc FileHandle: ~Copyable` opts the arc class out of copy semantics:
+# C++ codegen emits `FileHandle(const FileHandle&) = delete;` and a
+# defaulted move ctor. Practically, that means an `Arc<FileHandle>`
+# binding can only be moved (via `consuming` param) — never duplicated
+# into a second strong-ref slot. Combined with `consuming h: FileHandle`
+# at the consumer's signature, the auto-`std::move(...)` wrapping at the
+# call site transfers ownership cleanly: the original `h` becomes
+# moved-from after `close_handle(h)`, and the deinit fires inside the
+# consumer.
+#
+# Expected output:
+#
+#   opening fd 42
+#   inside close_handle, fd=42
+#   closing fd 42        <- deinit ran in close_handle's scope
+#   after close
+#
+# (No "closing fd 42" message after "after close" — the original `h`
+# is moved-from by the time main returns, so its destructor is a
+# no-op.)
+
+arc FileHandle: ~Copyable {
+  pub var fd : Int = -1
+
+  init(f: Int) {
+    fd = f
+    println("opening fd #{f}")
+  }
+
+  deinit {
+    println("closing fd #{fd}")
+  }
+}
+
+fn closeHandle(consuming h: FileHandle) {
+  println("inside close_handle, fd=#{h.fd}")
+}
+
+fn main {
+  cli_app {
+    let h = FileHandle.new(42)
+    closeHandle(h)
+    println("after close")
+  }
+}

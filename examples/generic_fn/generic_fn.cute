@@ -1,0 +1,40 @@
+# Generic top-level functions. The type checker infers `T` from
+# argument types via the substitution+unification pipeline; the C++
+# codegen emits a function template (`template<typename T>`); each
+# call site instantiates it with the inferred T.
+#
+# Supports:
+#   - Multiple type params (`fn pair<A, B>(a: A, b: B)`).
+#   - Inference from `List<T>` arg → returns T.
+#   - Identity / passthrough patterns.
+#
+# Limitations: only top-level fns. Method-level generics (a generic
+# fn declared inside a class) aren't yet hooked through codegen.
+
+fn first<T>(xs: List<T>) T {
+  xs[0]
+}
+
+fn identity<T>(x: T) T {
+  x
+}
+
+fn main {
+  cli_app {
+    let nums = [10, 20, 30]
+    let strs = ["hello", "world"]
+
+    # Inference from arg types — bare call.
+    println("first int: #{first(nums)}")
+    println("first str: #{first(strs)}")
+
+    println("identity int: #{identity(42)}")
+    let greeting = "hi"
+    println("identity str: #{identity(greeting)}")
+
+    # Explicit type-args at the call site (Rust turbofish-ish, but
+    # without the leading `::` since Cute uses `.` for everything).
+    let z = identity<Int>(0)
+    println("explicit: #{z}")
+  }
+}

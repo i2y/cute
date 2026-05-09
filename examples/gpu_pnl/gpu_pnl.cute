@@ -1,0 +1,154 @@
+# Cute reactive showcase — Trade P&L Calculator.
+#
+# Exercises the three Qt 6 binding-system features that landed in the
+# 2026-05-03 prop overhaul:
+#
+#   1. `prop x : T, bindable`    → Q_OBJECT_BINDABLE_PROPERTY storage.
+#                                  External setters route through Qt's
+#                                  binding machinery; the computed
+#                                  props below auto-track them.
+#   2. `prop x : T, bind { e }`  → Q_OBJECT_COMPUTED_PROPERTY. Six
+#                                  derived figures recompute lazily on
+#                                  read, with dependencies registered
+#                                  automatically — no `emit` needed.
+#   3. `batch { ... }`           → QScopedPropertyUpdateGroup. The
+#                                  preset buttons mutate five fields
+#                                  inside a `batch`; the binding
+#                                  system flushes notifications once
+#                                  at scope exit, so the screen never
+#                                  flickers through an intermediate
+#                                  "new symbol with old price" state.
+
+class Position {
+  pub prop symbol : String, bindable, default: "AAPL"
+  pub prop entryPrice : Float, bindable, default: 150.0
+  pub prop currentPrice : Float, bindable, default: 175.5
+  pub prop quantity : Int, bindable, default: 100
+  pub prop fees : Float, bindable, default: 12.0
+
+  # Six derived figures. Every bare member-name read inside a
+  # `bind { ... }` body registers a binding-system dependency on the
+  # corresponding bindable prop, so anything downstream re-evaluates
+  # exactly when (and only when) one of its inputs actually changes.
+  pub prop costBasis : Float, bind { entryPrice * quantity }
+  pub prop marketValue : Float, bind { currentPrice * quantity }
+  pub prop grossPl : Float, bind { marketValue - costBasis }
+  pub prop netPl : Float, bind { grossPl - fees }
+  pub prop plPct : Float, bind { (netPl / costBasis) * 100.0 }
+  pub prop breakeven : Float, bind { entryPrice + (fees / quantity) }
+
+  # Single-field nudge: shows the dependency chain rippling
+  # (current_price → market_value → gross_pl → net_pl → pl_pct).
+  pub fn nudgePrice(delta: Float) {
+    currentPrice = currentPrice + delta
+  }
+
+  # Atomic snapshot loaders — five writes inside `batch` flush as one
+  # binding-system update group. Without `batch`, the binding would
+  # tick five times and an observer might briefly see e.g. the new
+  # symbol paired with the old price/quantity. With `batch`, all five
+  # land together; the screen redraws once with a fully consistent
+  # state.
+
+  pub fn loadAapl {
+    batch {
+      symbol        = "AAPL"
+      entryPrice   = 150.0
+      currentPrice = 175.5
+      quantity      = 100
+      fees          = 12.0
+    }
+  }
+
+  pub fn loadTslaWinning {
+    batch {
+      symbol        = "TSLA"
+      entryPrice   = 200.0
+      currentPrice = 245.0
+      quantity      = 50
+      fees          = 8.0
+    }
+  }
+
+  pub fn loadTslaLosing {
+    batch {
+      symbol        = "TSLA"
+      entryPrice   = 280.0
+      currentPrice = 215.0
+      quantity      = 50
+      fees          = 8.0
+    }
+  }
+
+  pub fn loadBtc {
+    batch {
+      symbol        = "BTC"
+      entryPrice   = 45000.0
+      currentPrice = 62000.0
+      quantity      = 1
+      fees          = 50.0
+    }
+  }
+
+  # Quick scenarios — single-field writes, but wrapped in batch so the
+  # API is uniform. With one bindable write the batch is a no-op; the
+  # block is still correct.
+  pub fn applyBull { currentPrice = entryPrice * 1.15 }
+  pub fn applyBear { currentPrice = entryPrice * 0.85 }
+  pub fn resetToEntry { currentPrice = entryPrice }
+}
+
+widget Main {
+  let pos = Position()
+
+  Column {
+    padding: 24.0
+    spacing: 8.0
+
+    Text { text: "Cute reactive — Trade P&L"; fontSize: 22.0; color: "#1976d2" }
+    Text { text: "Symbol: #{pos.symbol}";     fontSize: 28.0 }
+
+    Text { text: "── Position (bindable inputs) ──"; color: "#888888" }
+    Text { text: "Entry price : $#{pos.entryPrice:.2f}" }
+    Text { text: "Quantity    : #{pos.quantity}" }
+    Text { text: "Fees        : $#{pos.fees:.2f}" }
+
+    Text { text: "── Live ──"; color: "#888888" }
+    Text { text: "Current     : $#{pos.currentPrice:.2f}"; fontSize: 18.0 }
+
+    Row {
+      spacing: 8.0
+      Button { text: "−$10"; onClick: pos.nudgePrice(-10.0) }
+      Button { text: "−$1";  onClick: pos.nudgePrice(-1.0) }
+      Button { text: "+$1";  onClick: pos.nudgePrice(1.0) }
+      Button { text: "+$10"; onClick: pos.nudgePrice(10.0) }
+    }
+
+    Text { text: "── Computed (auto-tracked) ──"; color: "#888888" }
+    Text { text: "Cost basis  : $#{pos.costBasis:.2f}" }
+    Text { text: "Market value: $#{pos.marketValue:.2f}" }
+    Text { text: "Gross P&L   : $#{pos.grossPl:.2f}" }
+    Text { text: "Net P&L     : $#{pos.netPl:.2f}";   fontSize: 28.0; color: "#2e7d32" }
+    Text { text: "Return %    : #{pos.plPct:.2f}%";   fontSize: 18.0; color: "#2e7d32" }
+    Text { text: "Breakeven   : $#{pos.breakeven:.4f}" }
+
+    Text { text: "── Scenarios (single-prop) ──"; color: "#888888" }
+    Row {
+      spacing: 8.0
+      Button { text: "Bull +15%";      onClick: pos.applyBull() }
+      Button { text: "Bear −15%";      onClick: pos.applyBear() }
+      Button { text: "Reset to entry"; onClick: pos.resetToEntry() }
+    }
+
+    Text { text: "── Presets (atomic batch — 5 writes commit together) ──"; color: "#888888" }
+    Row {
+      spacing: 8.0
+      Button { text: "AAPL";          onClick: pos.loadAapl() }
+      Button { text: "TSLA winning";  onClick: pos.loadTslaWinning() }
+      Button { text: "TSLA losing";   onClick: pos.loadTslaLosing() }
+      Button { text: "BTC";           onClick: pos.loadBtc() }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute Trade P&L (BINDABLE demo)", theme: light) }

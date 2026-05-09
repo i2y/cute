@@ -1,0 +1,9 @@
+# Generated static site (zensical build / serve output).
+build/
+
+# Local docs venv (zensical + cute-pygments).
+.venv/
+
+# Editor / OS noise.
+.DS_Store
+__pycache__/

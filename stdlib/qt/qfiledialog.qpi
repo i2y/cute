@@ -1,0 +1,19 @@
+# QFileDialog — file open / save dialogs. The static getOpenFileName
+# / getSaveFileName / getExistingDirectory factories are by far the
+# most common entry points; they spawn a native dialog and return
+# the user's selection (empty string on cancel).
+
+class QFileDialog < QWidget {
+  prop nameFilters : QStringList
+  prop defaultSuffix : String
+  prop selectedNameFilter : String
+
+  signal fileSelected(path: String)
+  signal filesSelected(paths: QStringList)
+  signal directoryEntered(path: String)
+
+  fn selectedFiles QStringList
+  fn selectFile(path: String)
+  fn open
+  fn close
+}

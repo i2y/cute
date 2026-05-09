@@ -1,0 +1,28 @@
+# Built-in Qt 6 binding for QWidget. Surfaces just enough of the
+# QtWidgets base class for typical declarative widget trees to
+# type-check. `widget Main { QMainWindow { ... } }` lowering needs
+# this so calls like `setWindowTitle` and signals like `destroyed`
+# resolve properly instead of soft-passing.
+
+class QWidget < QObject {
+  prop windowTitle : String
+  prop visible : Bool
+  prop enabled : Bool
+  prop toolTip : String
+  prop statusTip : String
+  prop styleSheet : String
+
+  fn show
+  fn hide
+  fn close Bool
+  fn raise
+  fn lower
+  fn setFocus
+  fn update
+  fn repaint
+  fn resize(w: Int, h: Int)
+  fn move(x: Int, y: Int)
+  fn setMinimumSize(w: Int, h: Int)
+  fn setMaximumSize(w: Int, h: Int)
+  fn setLayout(layout: QLayout)
+}

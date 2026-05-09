@@ -1,0 +1,23 @@
+# Typesystem for `stdlib/qt/qslider.qpi`. QSlider adds tick marks
+# and orientation on top of QAbstractSlider — most of the slider
+# surface (value / min / max / valueChanged signal) lives on the
+# parent, available via Cute's super-class lookup.
+#
+# Qt::Orientation / Qt::TickPosition are enum-typed properties
+# the auto-gen drops (no type map entries). Cast to Int at the
+# call site if you need them.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QSlider"
+kind = "object"
+header = "${qt_widgets}/qslider.h"
+comment = """
+QSlider — horizontal / vertical range-input widget with optional tick
+marks. Inherits the value / valueChanged surface from QAbstractSlider.
+"""
+include = []

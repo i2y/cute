@@ -1,0 +1,139 @@
+# Trade P&L Calculator — QML / QtQuick.Controls backend.
+#
+# Same `class Position` (bindable + computed + batch) as gpu_pnl and
+# widgets_pnl, exposed to QML as a Q_OBJECT. QML's binding system
+# picks up the BINDABLE-flagged properties automatically — every
+# `text: pos.net_pl` re-evaluates exactly when net_pl's underlying
+# bindable inputs change, with no manual `notify` plumbing on the
+# QML side.
+
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Layouts"
+
+pub class Position {
+  pub prop symbol : String, bindable, default: "AAPL"
+  pub prop entryPrice : Float, bindable, default: 150.0
+  pub prop currentPrice : Float, bindable, default: 175.5
+  pub prop quantity : Int, bindable, default: 100
+  pub prop fees : Float, bindable, default: 12.0
+
+  pub prop costBasis : Float, bind { entryPrice * quantity }
+  pub prop marketValue : Float, bind { currentPrice * quantity }
+  pub prop grossPl : Float, bind { marketValue - costBasis }
+  pub prop netPl : Float, bind { grossPl - fees }
+  pub prop plPct : Float, bind { (netPl / costBasis) * 100.0 }
+  pub prop breakeven : Float, bind { entryPrice + (fees / quantity) }
+
+  pub fn nudgePrice(delta: Float) { currentPrice = currentPrice + delta }
+
+  pub fn loadAapl {
+    batch {
+      symbol = "AAPL"; entryPrice = 150.0; currentPrice = 175.5
+      quantity = 100;  fees = 12.0
+    }
+  }
+  pub fn loadTslaWinning {
+    batch {
+      symbol = "TSLA"; entryPrice = 200.0; currentPrice = 245.0
+      quantity = 50;   fees = 8.0
+    }
+  }
+  pub fn loadTslaLosing {
+    batch {
+      symbol = "TSLA"; entryPrice = 280.0; currentPrice = 215.0
+      quantity = 50;   fees = 8.0
+    }
+  }
+  pub fn loadBtc {
+    batch {
+      symbol = "BTC"; entryPrice = 45000.0; currentPrice = 62000.0
+      quantity = 1;   fees = 50.0
+    }
+  }
+
+  pub fn applyBull { currentPrice = entryPrice * 1.15 }
+  pub fn applyBear { currentPrice = entryPrice * 0.85 }
+  pub fn resetToEntry { currentPrice = entryPrice }
+}
+
+view Main {
+  ApplicationWindow {
+    width: 520
+    height: 760
+    visible: true
+    title: "Cute Trade P&L (QML)"
+
+    Position { id: pos }
+
+    Column {
+      anchors.fill: parent
+      anchors.margins: 24
+      spacing: 8
+
+      Label {
+        text: "Cute reactive — Trade P&L"
+        color: "#1976d2"
+        font.pixelSize: 22
+        font.bold: true
+      }
+      Label {
+        text: "Symbol: " + pos.symbol
+        font.pixelSize: 26
+      }
+
+      Label { text: "── Position ──"; color: "#888" }
+      Label { text: "Entry price : $" + pos.entryPrice.toFixed(2) }
+      Label { text: "Quantity    : " + pos.quantity }
+      Label { text: "Fees        : $" + pos.fees.toFixed(2) }
+
+      Label { text: "── Live ──"; color: "#888" }
+      Label {
+        text: "Current     : $" + pos.currentPrice.toFixed(2)
+        font.pixelSize: 18
+      }
+
+      Row {
+        spacing: 8
+        Button { text: "−$10"; onClicked: pos.nudgePrice(-10.0) }
+        Button { text: "−$1";  onClicked: pos.nudgePrice(-1.0) }
+        Button { text: "+$1";  onClicked: pos.nudgePrice(1.0) }
+        Button { text: "+$10"; onClicked: pos.nudgePrice(10.0) }
+      }
+
+      Label { text: "── Computed ──"; color: "#888" }
+      Label { text: "Cost basis  : $" + pos.costBasis.toFixed(2) }
+      Label { text: "Market value: $" + pos.marketValue.toFixed(2) }
+      Label { text: "Gross P&L   : $" + pos.grossPl.toFixed(2) }
+      Label {
+        text: "Net P&L     : $" + pos.netPl.toFixed(2)
+        color: "#2e7d32"
+        font.pixelSize: 26
+        font.bold: true
+      }
+      Label {
+        text: "Return %    : " + pos.plPct.toFixed(2) + "%"
+        color: "#2e7d32"
+        font.pixelSize: 18
+      }
+      Label { text: "Breakeven   : $" + pos.breakeven.toFixed(4) }
+
+      Label { text: "── Scenarios ──"; color: "#888" }
+      Row {
+        spacing: 8
+        Button { text: "Bull +15%";      onClicked: pos.applyBull() }
+        Button { text: "Bear −15%";      onClicked: pos.applyBear() }
+        Button { text: "Reset to entry"; onClicked: pos.resetToEntry() }
+      }
+
+      Label { text: "── Presets (atomic batch) ──"; color: "#888" }
+      Row {
+        spacing: 8
+        Button { text: "AAPL";         onClicked: pos.loadAapl() }
+        Button { text: "TSLA winning"; onClicked: pos.loadTslaWinning() }
+        Button { text: "TSLA losing";  onClicked: pos.loadTslaLosing() }
+        Button { text: "BTC";          onClicked: pos.loadBtc() }
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+# Cute's value type: `struct X { fields; methods }`. Stack-allocated,
+# copy on assignment, no metaobject, no inheritance. Field access uses
+# `.` (no parens — struct fields are plain C++ members), and
+# `T.new(a, b)` lowers to brace-init `T{a, b}`.
+#
+# Methods declared inside the struct body lower to inline C++ member
+# functions: `self.x` reads a field, `self.method()` calls a sibling
+# method, and a method returning the struct type round-trips as a
+# value (no aliasing).
+
+struct Point {
+  var x: Int = 0
+  var y: Int = 0
+
+  fn magnitudeSq Int {
+    self.x * self.x + self.y * self.y
+  }
+
+  fn shifted(dx : Int, dy : Int) Point {
+    Point.new(self.x + dx, self.y + dy)
+  }
+}
+
+fn show(p: Point) {
+  println("x=#{p.x} y=#{p.y}  |p|^2=#{p.magnitudeSq()}")
+}
+
+fn main {
+  cli_app {
+    let p : Point = Point.new(3, 4)
+    let q : Point = Point.new()
+    show(p)
+    show(q)
+
+    # Struct copies on assignment — `r` and `p` are independent.
+    let r : Point = p
+    show(r)
+
+    # Struct method returning a struct: receives a value, no aliasing.
+    let s : Point = p.shifted(10, 20)
+    show(s)
+  }
+}

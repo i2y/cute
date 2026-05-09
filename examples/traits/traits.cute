@@ -1,0 +1,75 @@
+# Nominal traits + retroactive impls (Swift `protocol` /
+# Rust `trait` style).
+#
+#   trait Foo { fn x Y }
+#   impl Foo for Bar { fn x Y { ... } }
+#
+# At codegen time, impl methods are spliced onto the target class
+# so they're callable as regular members. The trait itself is
+# erased — no runtime representation.
+#
+# Generic-bound fn bodies (`fn announce<T: Summarizable>`) call
+# trait methods on `T` through `::cute::deref`, which uses
+# `if constexpr (std::is_pointer_v<T>)` to pick the right form
+# at C++ template instantiation. So the same body works whether
+# T resolves to a pointer (Person*) or a value type.
+
+trait Summarizable {
+  fn summary String
+  # Default body: impls that omit `loud_summary` get this for free.
+  # Per-impl override is allowed; the codegen merges the impl's
+  # version when present and falls back to the default otherwise.
+  fn loudSummary String { "(no summary available)" }
+}
+
+class Person {
+  pub var name : String = ""
+  pub var age : Int = 0
+}
+
+class Counter {
+  pub var n : Int = 0
+}
+
+impl Summarizable for Person {
+  pub fn summary String {
+    "person: #{self.name()}, age #{self.age()}"
+  }
+  pub fn loudSummary String {
+    "PERSON >> #{self.name()} (#{self.age()})"
+  }
+}
+
+# Counter only supplies `summary`; `loud_summary` falls back to
+# the trait default.
+
+impl Summarizable for Counter {
+  pub fn summary String {
+    "counter: #{self.n()}"
+  }
+}
+
+# Generic over any T that implements Summarizable. The body
+# calls `thing.summary()` which the codegen routes through
+# `::cute::deref` so pointer-typed Ts (the QObject case) work
+# uniformly. Calling `thing.bogus()` here would be a Cute-side
+# type error — the body-side check resolves method names against
+# the trait's surface.
+
+fn announce<T: Summarizable>(thing: T) {
+  println(thing.summary())
+  println(thing.loudSummary())
+}
+
+fn main {
+  cli_app {
+    let p = Person.new()
+    p.name = "Alice"
+    p.age = 30
+    announce(p)
+
+    let c = Counter.new()
+    c.n = 42
+    announce(c)
+  }
+}

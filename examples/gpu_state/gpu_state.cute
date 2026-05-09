@@ -1,0 +1,31 @@
+# cute_ui (Canvas Painter backend) sibling of `examples/counter_state`
+# and `examples/widgets_counter_state`. The same `state X : T = init`
+# keyword that works inside `view` and QtWidgets `widget` bodies also
+# works inside cute_ui widgets — the compiler desugars the cute_ui
+# body the same way as a QtWidgets one (synthesized `__<Widget>State`
+# QObject + hidden Object-kind state field), and the cute_ui side
+# already wires up state-field signals to `requestRebuild` so the
+# Element tree re-renders on every assignment.
+widget Main {
+  state count : Int = 0
+
+  Column {
+    padding: 24.0
+    spacing: 12.0
+
+    Text { text: "count: #{count}"; fontSize: 28.0; color: "#1565c0" }
+
+    Row {
+      spacing: 8.0
+      Button { text: "+1";    onClick: { count = count + 1 } }
+      Button { text: "reset"; onClick: { count = 0 } }
+    }
+
+    Text {
+      text: "no class, no signal, no emit — just `state count : Int = 0`"
+      color: "#888888"
+    }
+  }
+}
+
+fn main { gpu_app(window: Main, title: "Cute @State (cute_ui)", theme: light) }

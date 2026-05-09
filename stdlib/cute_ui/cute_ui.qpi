@@ -1,0 +1,101 @@
+# Type bindings for the cute::ui (Qt 6.11 Canvas Painter) backend.
+# Loaded only when the project uses the gpu_app intrinsic; the cute
+# codegen lowers these names to cute::ui::dsl::col / row / text / button etc.
+
+class Element {
+  prop key : String
+}
+
+class Window < Element {
+  prop title : String
+  prop width : Int
+  prop height : Int
+}
+
+class Column < Element {
+  prop spacing : Float
+  prop padding : Float
+}
+
+class Row < Element {
+  prop spacing : Float
+  prop padding : Float
+}
+
+class Stack < Element {
+}
+
+class Text < Element {
+  prop text : String
+  prop fontSize : Float
+  # Accepts QColor-parseable strings: "#rrggbb", "#aarrggbb",
+  # or CSS/SVG color names ("red", "steelblue", ...).
+  prop color : String
+}
+
+class Button < Element {
+  prop text : String
+
+  signal onClick
+}
+
+class TextField < Element {
+  prop text : String
+  prop placeholder : String
+
+  signal textChanged(text: String)
+}
+
+class Image < Element {
+  prop source : String
+  prop width : Float
+  prop height : Float
+}
+
+class Svg < Element {
+  prop source : String
+  prop width : Float
+  prop height : Float
+}
+
+class BarChart < Element {
+  prop data : List<Float>
+  prop labels : List<String>
+  prop width : Float
+  prop height : Float
+}
+
+class LineChart < Element {
+  prop data : List<Float>
+  prop labels : List<String>
+  prop width : Float
+  prop height : Float
+}
+
+class ProgressBar < Element {
+  prop value : Float    # 0..1
+  prop width : Float
+  prop height : Float
+}
+
+class Spinner < Element {
+  prop width : Float
+  prop height : Float
+}
+
+class ListView < Element {
+  prop virtualized: Bool
+  prop itemHeight: Float
+}
+
+class DataTable < Element {
+}
+
+class ScrollView < Element {
+}
+
+class HScrollView < Element {
+}
+
+class Modal < Element {
+}

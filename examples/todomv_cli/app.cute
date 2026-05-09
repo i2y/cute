@@ -1,0 +1,36 @@
+class TodoItem {
+  pub prop text : String, default: ""
+  # `done` shares the `stateChanged` notify with future state-bearing
+  # fields; keep the explicit notify so they all fire one signal.
+  pub prop done : Bool, notify: :stateChanged, default: false
+  pub signal stateChanged
+
+  pub fn toggle { done = !done }
+}
+
+fn main {
+  cli_app {
+    let milk = TodoItem.new()
+    milk.setText("buy milk")
+
+    let dog = TodoItem.new()
+    dog.setText("walk dog")
+
+    let cute = TodoItem.new()
+    cute.setText("ship Cute")
+
+    println("--- initial ---")
+    println(" - ", milk.text(), " (done=", milk.done(), ")")
+    println(" - ", dog.text(),  " (done=", dog.done(),  ")")
+    println(" - ", cute.text(), " (done=", cute.done(), ")")
+
+    println("toggling milk + cute...")
+    milk.toggle()
+    cute.toggle()
+
+    println("--- after toggle ---")
+    println(" - ", milk.text(), " (done=", milk.done(), ")")
+    println(" - ", dog.text(),  " (done=", dog.done(),  ")")
+    println(" - ", cute.text(), " (done=", cute.done(), ")")
+  }
+}

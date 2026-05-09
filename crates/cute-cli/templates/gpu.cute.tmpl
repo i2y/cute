@@ -1,0 +1,26 @@
+# GPU-accelerated UI via the Qt 6.11 Canvas Painter module (Tech Preview).
+# Avoids QML/JS and QtWidgets; uses GPU rendering through QRhi.
+#
+# Before `cute build`, install the CuteUI runtime once:
+#   cute install-cute-ui
+
+class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn increment { count = count + 1 }
+  pub fn decrement { count = count - 1 }
+}
+
+widget Main {
+  let counter = Counter()
+
+  Column {
+    Text { text: "Cute on GPU" }
+    Row {
+      Button { text: "+1"; onClick: counter.increment() }
+      Button { text: "-1"; onClick: counter.decrement() }
+    }
+  }
+}
+
+fn main { gpu_app(window: Main) }

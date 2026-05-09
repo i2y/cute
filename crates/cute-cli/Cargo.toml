@@ -1,0 +1,17 @@
+[package]
+name = "cute-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cute language: cutec command-line driver."
+
+[[bin]]
+name = "cute"
+path = "src/main.rs"
+
+[dependencies]
+cute-driver.workspace = true
+cute-syntax.workspace = true
+clap.workspace = true
+codespan-reporting.workspace = true
+thiserror.workspace = true

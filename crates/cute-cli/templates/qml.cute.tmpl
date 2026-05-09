@@ -1,0 +1,36 @@
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+
+class Counter {
+  pub prop count : Int, default: 0
+
+  pub fn increment {
+    count = count + 1
+  }
+}
+
+view Main {
+  let counter = Counter()
+
+  ApplicationWindow {
+    width: 320
+    height: 220
+    visible: true
+    title: "{NAME}"
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 16
+
+      Label {
+        text: "Count: " + counter.count
+        font.pixelSize: 28
+      }
+
+      Button {
+        text: "+1"
+        onClicked: counter.increment()
+      }
+    }
+  }
+}

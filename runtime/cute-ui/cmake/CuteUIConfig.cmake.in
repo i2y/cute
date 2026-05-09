@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Qt6 6.11 REQUIRED COMPONENTS Core Gui CanvasPainter)
+
+include("${CMAKE_CURRENT_LIST_DIR}/CuteUITargets.cmake")
+
+check_required_components(CuteUI)

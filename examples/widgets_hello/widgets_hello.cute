@@ -1,0 +1,22 @@
+widget Main {
+  QMainWindow {
+    windowTitle: "Cute Widgets"
+
+    QVBoxLayout {
+      QLabel { text: "Hello from Cute on QtWidgets!" }
+
+      QPushButton {
+        text: "click me"
+        onClicked: greet()
+      }
+
+      if true {
+        QLabel { text: "(this label is conditionally visible)" }
+      }
+    }
+  }
+}
+
+fn greet {
+  println("button clicked!")
+}

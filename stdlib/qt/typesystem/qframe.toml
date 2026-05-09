@@ -1,0 +1,20 @@
+# Typesystem for `stdlib/qt/qframe.qpi` — the QtWidgets frame
+# wrapper that QLabel / QToolBox / a few others derive from.
+# Small surface; just exists so downstream classes can declare
+# `< QFrame` instead of jumping straight to `< QWidget` and
+# losing the frameStyle / lineWidth properties.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QFrame"
+kind = "object"
+header = "${qt_widgets}/qframe.h"
+comment = """
+QFrame — base widget for box-decorated children (QLabel, QToolBox, ...).
+Adds frameStyle / lineWidth / midLineWidth on top of QWidget.
+"""
+include = ["frameStyle", "setFrameStyle"]

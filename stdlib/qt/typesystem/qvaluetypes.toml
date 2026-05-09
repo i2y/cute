@@ -1,0 +1,183 @@
+# Typesystem description for `stdlib/qt/qvaluetypes.qpi`. Driven by
+# `cute-qpi-gen --typesystem stdlib/qt/typesystem/qvaluetypes.toml`.
+#
+# Editorial choices: the handcrafted .qpi only exposes a curated
+# subset of each Qt value type's surface — the auto-gen would
+# otherwise emit 60+ methods on QColor alone. Each `include = [...]`
+# below mirrors the methods the handcraft chose to bind. `params`
+# entries align Qt's header param names with the names existing
+# Cute call sites already use.
+#
+# Paths are absolute (machine-specific). Override on other hosts
+# with sed or by introducing a `cute_qpi_gen.toml` env-driven layer.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}"]
+std = "c++17"
+
+# QPoint / QPointF — 2D coordinate. `setX` / `setY` mutate by ref,
+# `transposed()` returns a swapped copy, etc.
+[[classes]]
+name = "QPoint"
+header = "${qt_core}/qpoint.h"
+include = ["isNull", "x", "y", "setX", "setY", "manhattanLength", "transposed", "toPointF"]
+
+[[classes]]
+name = "QPointF"
+header = "${qt_core}/qpoint.h"
+include = ["isNull", "x", "y", "setX", "setY", "manhattanLength", "toPoint", "transposed"]
+
+# QSize / QSizeF — width-height pair. Used for widget hints,
+# layout sizes, image dimensions.
+[[classes]]
+name = "QSize"
+header = "${qt_core}/qsize.h"
+include = ["isNull", "isEmpty", "isValid", "width", "height", "setWidth", "setHeight", "transposed"]
+# `setWidth(qsizetype w)` / `setHeight(qsizetype h)` already match
+# the handcraft's (w / h) names — no renames needed.
+
+[[classes]]
+name = "QSizeF"
+header = "${qt_core}/qsize.h"
+include = ["isNull", "isEmpty", "isValid", "width", "height", "setWidth", "setHeight", "toSize", "transposed"]
+
+# QRect / QRectF — axis-aligned rectangle. Multiple constructor
+# overloads in C++; bind the common accessors and skip the
+# constructor surface (use `QRect.new(x, y, w, h)` for the
+# integer form).
+[[classes]]
+name = "QRect"
+header = "${qt_core}/qrect.h"
+include = [
+  "isNull", "isEmpty", "isValid",
+  "x", "y", "width", "height",
+  "left", "top", "right", "bottom",
+  "center", "topLeft", "topRight", "bottomLeft", "bottomRight",
+  "size",
+  "setX", "setY", "setWidth", "setHeight", "setRect",
+  "moveTo", "translate",
+  "contains", "intersects",
+]
+# Qt 6 header writes `moveTo(int x, int t)` — the second param is
+# named `t` not `y`. Use a signature-keyed override so the
+# `moveTo(QPoint)` overload keeps its idiomatic `p` name instead
+# of inheriting the positional rename.
+params = { "moveTo(Int,Int)" = ["x", "y"], "moveTo(QPoint)" = ["p"] }
+
+[[classes]]
+name = "QRectF"
+header = "${qt_core}/qrect.h"
+include = [
+  "isNull", "isEmpty", "isValid",
+  "x", "y", "width", "height",
+  "left", "top", "right", "bottom",
+  "center", "size",
+  "toRect",
+  "setX", "setY", "setWidth", "setHeight",
+  "translate",
+]
+# Qt 6 header writes `setX(qreal pos)` — the param `pos` is fine
+# but doesn't match the handcraft's `x` / `y` / `w` / `h`. Rename
+# to keep call-site-keyword consistency with QRect.
+params = { setX = ["x"], setY = ["y"], setWidth = ["w"], setHeight = ["h"] }
+
+# QMargins / QMarginsF — left/top/right/bottom edge insets. Show
+# up on QLayout / QStyleOption / contentsMargins() / setMargins().
+[[classes]]
+name = "QMargins"
+header = "${qt_core}/qmargins.h"
+include = ["isNull", "left", "top", "right", "bottom", "setLeft", "setTop", "setRight", "setBottom"]
+
+[[classes]]
+name = "QMarginsF"
+header = "${qt_core}/qmargins.h"
+include = ["isNull", "left", "top", "right", "bottom", "setLeft", "setTop", "setRight", "setBottom", "toMargins"]
+
+# QLine / QLineF — directed line segment from p1 to p2. Used by
+# QPainter::drawLine() and the related geometry-test helpers.
+[[classes]]
+name = "QLine"
+header = "${qt_core}/qline.h"
+include = ["isNull", "p1", "p2", "x1", "y1", "x2", "y2", "dx", "dy", "center", "translate", "setP1", "setP2", "setPoints", "setLine"]
+
+[[classes]]
+name = "QLineF"
+header = "${qt_core}/qline.h"
+include = ["isNull", "p1", "p2", "x1", "y1", "x2", "y2", "dx", "dy", "center", "translate", "setP1", "setP2", "setPoints", "setLine", "length", "angle", "toLine"]
+
+# QDate / QDateTime — calendar dates and timestamps. C++ value
+# types; pass-by-value at call boundaries. Comparisons (==, <, >)
+# work directly on the value.
+[[classes]]
+name = "QDate"
+header = "${qt_core}/qdatetime.h"
+include_statics = true
+include = [
+  "isValid", "isNull",
+  "year", "month", "day",
+  "dayOfWeek", "dayOfYear", "daysInMonth", "daysInYear",
+  "toString", "addDays", "addMonths", "addYears", "daysTo",
+  "currentDate", "fromString",
+]
+params = { toString = ["fmt"], daysTo = ["other"], fromString = ["s", "fmt"] }
+
+[[classes]]
+name = "QDateTime"
+header = "${qt_core}/qdatetime.h"
+include_statics = true
+include = [
+  "isValid", "isNull",
+  "date",
+  "toString",
+  "toMSecsSinceEpoch", "toSecsSinceEpoch",
+  "addDays", "addMonths", "addYears", "addSecs", "addMSecs",
+  "secsTo", "msecsTo",
+  "currentDateTime", "fromString",
+  "fromMSecsSinceEpoch", "fromSecsSinceEpoch",
+]
+params = { toString = ["fmt"], secsTo = ["other"], msecsTo = ["other"], fromString = ["s", "fmt"] }
+
+# QColor — colour value (rgba + named-colour catalog). The
+# named-colour constructor takes a String; `QColor.new("red")`
+# resolves through Qt's SVG colour table.
+[[classes]]
+name = "QColor"
+header = "${qt_gui}/qcolor.h"
+include = [
+  "isValid", "name",
+  "red", "green", "blue", "alpha",
+  "redF", "greenF", "blueF", "alphaF",
+  "setRed", "setGreen", "setBlue", "setAlpha",
+  "setRgb",
+  "lighter", "darker",
+  "rgba",
+]
+# Qt header param names are unhelpfully verbose (`setRed(int red)` /
+# `setAlpha(int alpha)` — same word twice). Match the handcraft's
+# concise convention. Note: the old handcraft's `setRgba(r, g, b, a)`
+# was non-existent in Qt 6 (QColor::setRgba takes a single packed
+# QRgb). The 4-arg setRgb form (auto-emitted via default-arg
+# expansion of `setRgb(r, g, b, a = 255)`) is the correct substitute.
+params = { setRed = ["r"], setGreen = ["g"], setBlue = ["b"], setAlpha = ["a"], "setRgb(Int,Int,Int)" = ["r", "g", "b"], "setRgb(Int,Int,Int,Int)" = ["r", "g", "b", "a"], "setRgb(Int)" = ["rgb"], lighter = ["factor"], darker = ["factor"] }
+
+# QUrl — URL value. Used widely for KIO, network requests, file
+# paths converted to file:// URLs.
+[[classes]]
+name = "QUrl"
+header = "${qt_core}/qurl.h"
+include_statics = true
+include = [
+  "isValid", "isEmpty", "isLocalFile", "isRelative",
+  "toString", "toLocalFile",
+  "fileName", "host", "path", "scheme", "query", "fragment",
+  "setHost", "setPath", "setScheme", "setQuery",
+  "fromLocalFile",
+]
+# Note: handcraft listed `static QUrl fromString(s)` — Qt 6 has no
+# such static (the QUrl(QString) ctor handles string→URL). Cute
+# users should write `QUrl.new("https://...")` instead.
+# `fromLocalFile`'s param is named `localfile` in qurl.h; rename to
+# `path` to match the handcraft and the rest of the binding's
+# convention.
+params = { fromLocalFile = ["path"] }

@@ -1,0 +1,20 @@
+# Typesystem for `stdlib/qt/qtreeview.qpi`. Hierarchical list
+# view; rows can have children that expand/collapse. Pairs with
+# QAbstractItemModel implementations that return non-trivial
+# parent/child relationships.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QTreeView"
+kind = "object"
+header = "${qt_widgets}/qtreeview.h"
+comment = """
+QTreeView — hierarchical model-driven view. Rows expand / collapse
+to show children. Set up via setModel with any QAbstractItemModel
+that returns non-trivial parent/child relationships.
+"""
+include = ["expand", "collapse", "expandAll", "collapseAll", "expandToDepth", "resizeColumnToContents"]

@@ -1,0 +1,25 @@
+# QThread: low-level Qt thread. The handcraft exposed `start` /
+# `quit` / `wait` / `isRunning` / `isFinished` plus the `started` /
+# `finished` signals; the auto-gen reads the same shape directly from
+# `qthread.h` (Q_SIGNALS section + the listed methods).
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QThread"
+kind = "object"
+super_name = "QObject"
+header = "${qt_core}/qthread.h"
+include = [
+  "start",
+  "quit",
+  "wait",
+  "isRunning",
+  "isFinished",
+]
+# `start(Priority priority = InheritPriority)` arrives from libclang
+# without a parameter name slot; re-spell so the call site can read
+# `t.start(QThread.HighPriority)` rather than the bare `_`.
+params = { "start(Int)" = ["priority"] }

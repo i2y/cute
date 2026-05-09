@@ -1,0 +1,21 @@
+# Typesystem for `stdlib/qt/qcombobox.qpi`. QComboBox is a
+# drop-down combobox. Inherits from QWidget; its own Q_PROPERTYs
+# carry currentIndex / currentText / count / editable plus a few
+# styling knobs.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QComboBox"
+kind = "object"
+header = "${qt_widgets}/qcombobox.h"
+comment = """
+QComboBox — drop-down combobox. Programmatic API: addItem /
+insertItem / removeItem / setCurrentIndex. Signals fire on user
+selection (activated) and on value changes (currentIndexChanged /
+currentTextChanged) regardless of source.
+"""
+include = ["addItem", "insertItem", "removeItem", "clear", "setCurrentIndex", "setCurrentText"]

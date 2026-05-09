@@ -1,0 +1,297 @@
+# Kirigami (KDE Frameworks) — QML primitives for adaptive desktop /
+# convergent / mobile UIs. Loaded by cute-binding's load_stdlib;
+# class names are namespaced to `Kirigami_*` at load time so they
+# don't clash with QtQuick.Controls (notably `ApplicationWindow`,
+# which both modules define).
+#
+# Cute view bodies write the elements with the QML-style namespace
+# prefix:
+#
+#   view Main {
+#     Kirigami.ApplicationWindow {
+#       Kirigami.PageRow {
+#         Kirigami.ScrollablePage { title: "Hello" }
+#       }
+#     }
+#   }
+#
+# Codegen recognizes `module_path = [Kirigami]` on each Element and
+# emits the same `Kirigami.X { ... }` form into the .qml file, plus
+# `import org.kde.kirigami 2.20 as Kirigami` to the QML imports.
+#
+# Linking still requires the CMake bits in the user's cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6Kirigami"]
+#   link_libraries = ["KF6::Kirigami"]
+#
+# Bindings only describe the type surface, not the build wiring.
+
+# ApplicationWindow: top-level window. Conflicts with
+# QtQuick.Controls.ApplicationWindow — the namespace prefix in
+# user code disambiguates which one is meant.
+class ApplicationWindow {
+  prop title : String
+  prop visible : Bool
+  prop width : Int
+  prop height : Int
+
+  prop pageStack : PageRow
+
+  prop globalDrawer : GlobalDrawer
+  prop contextDrawer : ContextDrawer
+
+  signal closing
+}
+
+# Page: a single screen / page. The fundamental Kirigami unit.
+class Page {
+  prop title : String
+  prop visible : Bool
+  prop enabled : Bool
+  prop icon : String
+
+  prop leftPadding : Float
+  prop rightPadding : Float
+  prop topPadding : Float
+  prop bottomPadding : Float
+
+  prop actions : QObject
+
+  signal backRequested
+  signal contextualActionsAboutToShow
+}
+
+# ScrollablePage: like Page but with built-in scrolling. Common
+# choice for content that may overflow the view.
+class ScrollablePage < Page {
+  prop refreshing : Bool
+  prop supportsRefreshing : Bool
+
+  prop keyboardNavigationEnabled : Bool
+
+  signal refreshRequested
+}
+
+# OverlaySheet: modal-style sheet that slides over the current page.
+class OverlaySheet {
+  prop header : QObject
+  prop footer : QObject
+  prop showCloseButton : Bool
+
+  signal opened
+  signal closed
+
+  fn open
+  fn close
+}
+
+# PageRow: stack-style page navigator. Pushed / popped pages flow
+# horizontally on desktop, swipe-style on mobile.
+class PageRow {
+  prop currentIndex : Int
+  prop depth : Int
+  prop visibleItems : Int
+  prop defaultColumnWidth : Float
+
+  fn push(page: Page)
+  fn pop Page
+  fn replace(page: Page)
+  fn clear
+  fn get(index: Int) Page
+}
+
+# GlobalDrawer: navigation drawer that opens from the left edge.
+# Holds top-level actions and the app's identity.
+class GlobalDrawer {
+  prop title : String
+  prop titleIcon : String
+  prop bannerImageSource : String
+  prop opened : Bool
+  prop modal : Bool
+  prop collapsible : Bool
+
+  prop actions : QObject
+
+  signal bannerClicked
+}
+
+# ContextDrawer: contextual actions for the current page. Auto-
+# populated from the active Page's `actions` property.
+class ContextDrawer {
+  prop opened : Bool
+  prop modal : Bool
+}
+
+# Action: a unit of user intent (button, menu item, drawer entry).
+# Most Kirigami containers consume `actions:` as a list of these.
+class Action {
+  prop text : String
+  prop icon : String
+  prop iconName : String
+  prop iconSource : String
+  prop visible : Bool
+  prop enabled : Bool
+  prop checkable : Bool
+  prop checked : Bool
+  prop tooltip : String
+  prop shortcut : String
+  prop children : QObject
+
+  signal triggered
+  signal toggled(checked: Bool)
+}
+
+# AbstractCard / Card: card-style container primitives. Card adds
+# a header / contentItem / footer convention.
+class AbstractCard {
+  prop header : QObject
+  prop contentItem : QObject
+  prop footer : QObject
+  prop showClickFeedback : Bool
+
+  signal clicked
+}
+
+class Card < AbstractCard {
+  prop banner : QObject
+}
+
+# FormLayout: a two-column form-style layout (label | field).
+class FormLayout {
+  prop wideMode : Bool
+  prop twinFormLayouts : QObject
+}
+
+# Heading: typographic primitive. `level` 1-5 maps to font sizes.
+class Heading {
+  prop text : String
+  prop level : Int
+  prop type : Int
+  prop color : String
+  prop font : QObject
+  prop horizontalAlignment : Int
+  prop verticalAlignment : Int
+  prop wrapMode : Int
+  prop elide : Int
+}
+
+# Icon: themed icon. Source can be a name (fdo icon spec) or URL.
+class Icon {
+  prop source : String
+  prop color : String
+  prop isMask : Bool
+  prop smooth : Bool
+  prop width : Int
+  prop height : Int
+}
+
+# Avatar: circular avatar with name fallback.
+class Avatar {
+  prop name : String
+  prop source : String
+  prop color : String
+  prop initials : String
+  prop visible : Bool
+}
+
+# SearchField / PasswordField / ActionTextField: convenience text-
+# field wrappers. Sit on top of QtQuick.Controls.TextField with
+# extra placement / iconography.
+class SearchField {
+  prop text : String
+  prop placeholderText : String
+  prop autoAccept : Bool
+  prop delaySearch : Bool
+
+  signal accepted
+  signal textChanged
+}
+
+class PasswordField {
+  prop text : String
+  prop placeholderText : String
+
+  signal accepted
+  signal textChanged
+}
+
+class ActionTextField {
+  prop text : String
+  prop placeholderText : String
+  prop rightActions : QObject
+  prop leftActions : QObject
+}
+
+# Theme: read-only access to the active KDE color scheme. Used in
+# property bindings (e.g. `color: Kirigami.Theme.highlightColor`).
+class Theme {
+  prop colorSet : Int
+  prop inherit : Bool
+  prop textColor : String
+  prop highlightColor : String
+  prop highlightedTextColor : String
+  prop backgroundColor : String
+  prop alternateBackgroundColor : String
+  prop activeTextColor : String
+  prop activeBackgroundColor : String
+  prop linkColor : String
+  prop visitedLinkColor : String
+  prop negativeTextColor : String
+  prop neutralTextColor : String
+  prop positiveTextColor : String
+  prop disabledTextColor : String
+}
+
+# Units: standard sizing tokens. Cute view bodies typically read
+# things like `Kirigami.Units.largeSpacing` for layout-level pad.
+class Units {
+  prop gridUnit : Float
+  prop smallSpacing : Float
+  prop largeSpacing : Float
+  prop iconSizes : QObject
+  prop longDuration : Int
+  prop shortDuration : Int
+}
+
+# Separator: thin horizontal / vertical line. Adapts to theme.
+class Separator {
+  prop color : String
+  prop weight : Int
+}
+
+# InlineMessage: dismissible banner above page content. Common for
+# inline error / info / warning callouts.
+class InlineMessage {
+  prop text : String
+  prop type : Int
+  prop visible : Bool
+  prop showCloseButton : Bool
+  prop actions : QObject
+
+  signal linkActivated(link: String)
+  signal linkHovered(link: String)
+}
+
+# PlaceholderMessage: empty-state placeholder (centered icon +
+# heading + helper text).
+class PlaceholderMessage {
+  prop text : String
+  prop explanation : String
+  prop icon : String
+  prop type : Int
+  prop visible : Bool
+  prop helpfulAction : Action
+}
+
+# ListItemDragHandle / SwipeListItem etc. — common list-item
+# primitives that go inside a ListView delegate.
+class SwipeListItem {
+  prop contentItem : QObject
+  prop actions : QObject
+  prop allowStretching : Bool
+}
+
+class ListItemDragHandle {
+  prop listItem : QObject
+}

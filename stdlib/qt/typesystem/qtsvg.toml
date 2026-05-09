@@ -1,0 +1,33 @@
+# Typesystem for `stdlib/qt/qtsvg.qpi`. SVG renderer + dedicated
+# widget — useful for icon-heavy UIs that ship vector assets
+# rather than rasterised PNGs.
+#
+# Linking still requires `Qt6 COMPONENTS Svg SvgWidgets` in
+# cute.toml under [cmake]; the typesystem only describes the
+# type surface.
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}", "${qt_svg}", "${qt_svg_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QSvgRenderer"
+kind = "object"
+header = "${qt_svg}/qsvgrenderer.h"
+comment = """
+QSvgRenderer — parses an SVG file and renders into a QPainter.
+Used standalone for off-screen SVG → image rasterisation, or
+inside a QSvgWidget for in-widget rendering.
+"""
+include = ["load", "render"]
+
+[[classes]]
+name = "QSvgWidget"
+kind = "object"
+header = "${qt_svg_widgets}/qsvgwidget.h"
+comment = """
+QSvgWidget — QWidget that displays an SVG. The simpler form for
+icon-style widgets; for richer rendering control instantiate a
+QSvgRenderer directly.
+"""
+include = ["load"]

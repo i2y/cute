@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cute-pygments"
+version = "0.1.0"
+description = "Pygments lexer for the Cute programming language"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+authors = [{ name = "Yasushi Itoh" }]
+requires-python = ">=3.8"
+keywords = ["cute", "pygments", "lexer", "syntax-highlighting", "qt"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Markup",
+]
+dependencies = [
+    "Pygments >= 2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/i2y/cute"
+Repository = "https://github.com/i2y/cute"
+
+# This is the line that lets `pip install` make Pygments aware of
+# the Cute lexer. After installing, `pygmentize -l cute` and
+# Markdown processors that delegate to Pygments (Material for
+# MkDocs / Zensical / Sphinx / pymdownx.highlight) auto-discover
+# the lexer through this entry-point.
+[project.entry-points."pygments.lexers"]
+CuteLexer = "cute_pygments:CuteLexer"
+
+[tool.setuptools]
+packages = ["cute_pygments"]

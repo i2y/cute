@@ -1,0 +1,104 @@
+# Trait dispatch on extern + builtin-generic for-types.
+#
+# `impl Trait for ForType` works on three flavors of for-type, all
+# unified by the `::cute::trait_impl::<Trait>::` namespace dispatch
+# at trait method call sites in generic-bound bodies:
+#
+#   1. User class (Person, see traits.cute) — splice + delegate.
+#   2. Extern value type (QPoint here) — inline body in namespace.
+#   3. Builtin generic (List<T> here) — templated free function.
+#
+# The templated body `fn measure<T: Magnitude>(thing: T)` calls
+# `thing.magnitude()` which lowers to
+# `::cute::trait_impl::Magnitude::magnitude(thing)`. C++ overload
+# resolution at template-instantiation time picks the right
+# overload from the namespace based on T's actual type — no
+# `::cute::deref` shim, no member-method dependency.
+
+trait Magnitude {
+  fn magnitude Int
+}
+
+# Trait with a method-level generic. The body's `f(...)` call
+# returns U, and U flows through `map_to` to the surrounding fn's
+# return type. Type inference at the call site has to allocate a
+# fresh Var for U, unify it with the lambda's return, and record
+# the binding so codegen emits an explicit `<::cute::String>` arg
+# (C++ template deduction can't bind U through a raw lambda
+# passed as `std::function<U(qint64)>`).
+
+trait Mapper {
+  fn mapTo<U>(f: fn(Int) -> U) U
+}
+
+# Impl on an `extern value` Qt type (QPoint). The receiver is a
+# value (`QPoint& self`), and the body is inlined into the
+# namespace overload.
+
+impl Magnitude for QPoint {
+  pub fn magnitude Int { self.manhattanLength() }
+}
+
+# Method-level generic on the same `extern value` type. The
+# template prefix combines the impl's (empty) generics with the
+# method's `<U>`, producing a `template <typename U>` overload
+# in the namespace.
+
+impl Mapper for QPoint {
+  pub fn mapTo<U>(f: fn(Int) -> U) U { f(self.manhattanLength()) }
+}
+
+# Impl on another `extern value` Qt type (QStringList). Verifies
+# the binding-shape flip keeps direct-callable Qt members
+# (`self.count()`) usable inside an impl body.
+
+impl Magnitude for QStringList {
+  pub fn magnitude Int { self.count() }
+}
+
+# Impl on a builtin generic. List<T> lowers to QList<T> in C++;
+# the namespace overload is templated on T.
+
+impl<T> Magnitude for List<T> {
+  pub fn magnitude Int { self.count() }
+}
+
+fn measure<T: Magnitude>(thing: T) {
+  println("magnitude = #{thing.magnitude()}")
+}
+
+# `thing.map_to(...)` on a generic-bound receiver — the type
+# checker allocates a fresh Var for the method's `U`, unifies
+# it with the lambda's return, and records the binding so
+# codegen emits `::cute::trait_impl::Mapper::map_to<::cute::String>(thing, lambda)`.
+
+fn label<T: Mapper>(thing: T) {
+  let s : String = thing.mapTo({ |x: Int| "labeled: #{x}" })
+  println(s)
+}
+
+fn main {
+  cli_app {
+    # QPoint dispatch — inline body uses self.manhattanLength().
+    let p : QPoint = QPoint(3, 4)
+    measure(p)
+
+    # List<Int> dispatch — templated overload deduces T = Int.
+    let xs : List<Int> = [10, 20, 30]
+    measure(xs)
+
+    # Direct call (concrete-context dispatch). `p.magnitude()` and
+    # `xs.magnitude()` are routed through the namespace overload
+    # because the receiver's static type is value-tracked and there's
+    # an `impl Magnitude for ThatBase`. Real Qt members like
+    # `p.manhattanLength()` are NOT routed (no impl), so they keep
+    # the regular `.` lowering.
+    println("p.magnitude() = #{p.magnitude()}")
+    println("xs.magnitude() = #{xs.magnitude()}")
+    println("p.manhattanLength() = #{p.manhattanLength()}")
+
+    # Method-level generic dispatch — U inferred to String from
+    # the lambda's return type.
+    label(p)
+  }
+}

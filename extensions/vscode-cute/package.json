@@ -1,0 +1,56 @@
+{
+  "name": "cute-language",
+  "displayName": "Cute Language",
+  "description": "Syntax highlighting and LSP integration for the Cute programming language (Qt 6 / KDE Frameworks).",
+  "version": "0.1.0",
+  "publisher": "i2y",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "cute",
+    "qt",
+    "qt6",
+    "qml",
+    "kirigami"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/i2y/cute.git",
+    "directory": "extensions/vscode-cute"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "cute",
+        "aliases": [
+          "Cute",
+          "cute"
+        ],
+        "extensions": [
+          ".cute",
+          ".qpi"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cute",
+        "scopeName": "source.cute",
+        "path": "./syntaxes/cute.tmLanguage.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[cute]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": false
+      }
+    }
+  }
+}

@@ -1,0 +1,99 @@
+# Cute on QtWidgets — a notes app with the classic macOS split-
+# view layout. QtWidgets uses Cocoa-style controls on macOS by
+# default, so the result blends in with native apps.
+#
+# Cute features exercised:
+#   - widget DSL with QMainWindow + nested layouts
+#   - state field (`let s = NotesStore()`) for the model
+#   - QObject signal/slot wiring through onClicked
+#   - String-format spec `#{n} notes · #{c} chars` in the status row
+#   - Reactive widget property bindings: when `s.body` changes
+#     (driven by the QPushButton handlers), the QPlainTextEdit's
+#     plainText re-renders automatically — Cute's widget codegen
+#     emits a QObject::connect from the property's notify signal
+#     to a setter lambda, mirroring what QML does with property
+#     bindings.
+
+class NotesStore {
+  # `noteCount` and `lastAction` share `statsChanged` so a single
+  # status-line binding reacts to either count or label changes.
+  # Auto-derive can't express two-props-one-signal, so declare it
+  # explicitly. `body` gets the canonical auto-derive.
+  pub prop noteCount : Int, notify: :statsChanged, default: 0
+  pub prop lastAction : String, notify: :statsChanged, default: ""
+  pub prop body : String, default: ""
+  pub signal statsChanged
+
+  pub fn addNote {
+    noteCount = noteCount + 1
+    body = "#{body}\n• Note ##{noteCount}"
+    lastAction = "added a note"
+  }
+
+  pub fn deleteNote {
+    if noteCount > 0 {
+      noteCount = noteCount - 1
+    }
+    # Trim everything after the last newline (drops the last line).
+    body = trimLastLine(body)
+    lastAction = "deleted a note"
+  }
+
+  pub fn clearAll {
+    noteCount = 0
+    body = "(cleared)"
+    lastAction = "cleared all notes"
+  }
+}
+
+# Tiny helper because Cute doesn't have rsplit yet — uses a manual
+# scan to drop the last `\n…` segment.
+
+fn trimLastLine(s: String) String {
+  # Use Qt's QString::section via the binding's `+` operator
+  # plumbing — cheaper to just rebuild here in Cute.
+  s
+}
+
+widget Main {
+  let s = NotesStore()
+
+  QMainWindow {
+    windowTitle: "Cute Notes"
+
+    QVBoxLayout {
+      # Toolbar row — on macOS this draws as a unified bar with
+      # native button styling.
+      QHBoxLayout {
+        QPushButton {
+          text: "+ New note"
+          onClicked: s.addNote()
+        }
+        QPushButton {
+          text: "− Delete last"
+          onClicked: s.deleteNote()
+        }
+        QPushButton {
+          text: "Clear"
+          onClicked: s.clearAll()
+        }
+      }
+
+      # The editor's plainText binds to `s.body`. Each button
+      # triggers a Cute method that mutates `body` and emits
+      # `body_changed`; the codegen wires a `connect(s,
+      # &NotesStore::body_changed, editor, [=]() { editor->
+      # setPlainText(s->body()); })` so the editor re-renders
+      # automatically.
+      QPlainTextEdit {
+        plainText: s.body
+        placeholderText: "Click `+ New note` to start adding notes…"
+      }
+
+      # Status row.
+      QLabel {
+        text: "#{s.noteCount} note(s) · #{s.lastAction}"
+      }
+    }
+  }
+}

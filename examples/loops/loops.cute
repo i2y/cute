@@ -1,0 +1,21 @@
+# Demonstrates `for x in xs { ... }` as a regular fn-body statement.
+# `cute build loops.cute` produces a Qt CLI binary that prints each
+# entry to the terminal when run.
+
+fn dump(items: List) {
+  for item in items {
+    println(item)
+  }
+}
+
+fn main {
+  cli_app {
+    println("groceries:")
+    dump(["bread", "milk", "eggs"])
+    println("greetings:")
+    let names = ["world", "Plasma", "Cute"]
+    for n in names {
+      println(n)
+    }
+  }
+}

@@ -1,0 +1,98 @@
+# KF6 KCoreAddons — utility classes used by virtually every KDE
+# desktop app: KAboutData (the "about this app" payload that powers
+# Help → About / `--version` / Bug-Report dialogs), KAboutPerson /
+# KAboutLicense (its building blocks), and KFormat (locale-aware
+# byte / duration / date formatting).
+#
+# Loading is unconditional — bindings cost nothing at codegen, the
+# type checker just gets a richer surface. Actual linking is opt-in
+# through cute.toml:
+#
+#   [cmake]
+#   find_package = ["KF6CoreAddons"]
+#   link_libraries = ["KF6::CoreAddons"]
+#
+#   [cpp]
+#   includes = ["<KAboutData>", "<KFormat>"]
+
+# KAboutData: identity + metadata for the running application. The
+# canonical setup goes:
+#
+#   KAboutData about(
+#     "myapp", i18n("My App"), "1.0",
+#     i18n("Short description"), KAboutLicense::GPL,
+#     i18n("(c) 2026 Author")
+#   );
+#   about.addAuthor(i18n("Author"), i18n("role"), "a@example.com");
+#   KAboutData::setApplicationData(about);
+#
+# Wire it up before constructing QGuiApplication / KApplication so
+# every system-integration hook (DBus service id, crash reporter,
+# command-line --version) sees the metadata.
+class KAboutData {
+  prop componentName : String
+  prop displayName : String
+  prop version : String
+  prop shortDescription : String
+  prop homepage : String
+  prop bugAddress : String
+  prop copyrightStatement : String
+  prop otherText : String
+  prop productName : String
+  prop programLogo : QVariant
+  prop desktopFileName : String
+  prop organizationDomain : String
+
+  fn addAuthor(name: String, task: String, email: String, web: String, ocsUsername: String)
+  fn addCredit(name: String, task: String, email: String, web: String, ocsUsername: String)
+  fn setTranslator(name: String, email: String)
+  fn setLicense(license: Int)
+  fn setLicenseText(text: String)
+  fn addLicenseText(text: String)
+  fn setHomepage(homepage: String)
+  fn setBugAddress(address: String)
+  fn setOrganizationDomain(domain: String)
+  fn setDesktopFileName(name: String)
+
+  fn authors List
+  fn credits List
+  fn translators List
+  fn licenses List
+}
+
+# KAboutPerson: a single contributor record. Constructed indirectly
+# through KAboutData::addAuthor / addCredit; binding exposes the
+# read accessors so tooling can iterate authors.
+class KAboutPerson {
+  fn name String
+  fn task String
+  fn emailAddress String
+  fn webAddress String
+  fn ocsUsername String
+}
+
+# KAboutLicense: license descriptor. The integer license codes
+# match KAboutLicense::LicenseKey (0=Custom, 1=GPLv2, 2=LGPLv2,
+# 3=BSD, 4=Artistic, 5=GPLv3, 6=LGPLv3, ...). Use those raw
+# values until we add a real `enum` form.
+class KAboutLicense {
+  fn name(formatStyle: Int) String
+  fn text String
+  fn key Int
+  fn spdx String
+}
+
+# KFormat: locale-aware human-friendly formatting. Sized for
+# UI labels: file sizes ("1.2 MiB"), durations ("2 minutes"),
+# relative dates ("yesterday"). The class is a small value type
+# in C++; bindings ignore that nuance and treat it as a regular
+# class — call it via `KFormat().formatByteSize(1024)`.
+class KFormat {
+  fn formatByteSize(size: Float, precision: Int) String
+  fn formatDuration(msecs: Int) String
+  fn formatDecimalDuration(msecs: Int, decimalPlaces: Int) String
+  fn formatSpelloutDuration(msecs: Int) String
+  fn formatRelativeDate(date: QDate, format: Int) String
+  fn formatRelativeDateTime(dateTime: QDateTime, format: Int) String
+  fn formatValue(value: Float, unit: Int, precision: Int) String
+}

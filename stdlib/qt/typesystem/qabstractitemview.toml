@@ -1,0 +1,24 @@
+# Typesystem for `stdlib/qt/qabstractitemview.qpi`. The Q_OBJECT
+# base of QListView / QTreeView / QTableView. Inherits from
+# QAbstractScrollArea (and through that, QFrame → QWidget).
+#
+# This is the layer that connects views to models — `setModel`
+# binds a QAbstractItemModel to the view, after which all the
+# selection / activation / click signals flow.
+
+
+[clang]
+includes = ["${qt_core}", "${qt_gui}", "${qt_widgets}"]
+std = "c++17"
+
+[[classes]]
+name = "QAbstractItemView"
+kind = "object"
+header = "${qt_widgets}/qabstractitemview.h"
+comment = """
+QAbstractItemView — Q_OBJECT base of QListView / QTreeView /
+QTableView. setModel binds a QAbstractItemModel to the view;
+selection / activation / click signals flow once a model is
+attached. Inherits scrollbar handling from QAbstractScrollArea.
+"""
+include = ["setModel", "model", "scrollToTop", "scrollToBottom", "selectAll", "clearSelection", "edit", "reset"]
