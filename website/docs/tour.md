@@ -393,18 +393,18 @@ under the hood.
 ## Async / await (Qt 6.5+ coroutines)
 
 ```cute
-async fn fetch(url: String) Future(String) {
+async fn fetch(url: String) Future<String> {
   let resp = await network.get(url)
   resp.body
 }
 
-async fn main_async Future(Void) {
+async fn main_async Future<Void> {
   let body = await fetch("https://example.com")
   println(body)
 }
 ```
 
-`async fn f T` (or the explicit `async fn f Future(T)`) lowers to a
+`async fn f T` (or the explicit `async fn f Future<T>`) lowers to a
 coroutine whose C++ return type is `QFuture<T>`; `await expr` is
 `co_await expr` under the hood. Cute ships
 `runtime/cpp/cute_async.h`, which adds the
