@@ -1,0 +1,28 @@
+# kf6_config — persistent counter using KF6 KConfig.
+#
+# KConfig is KDE's configuration framework. `KConfig.new(file)`
+# opens (or creates) a per-app config file; `KConfigGroup` carves
+# a namespaced view inside it; the overloaded `readEntry` /
+# `writeEntry` methods are the typed accessors — Cute dispatches
+# on the default-value type, C++ template deduction picks the
+# matching `readEntry<T>` instantiation on the KF6 side.
+#
+# Behaviour: each run of `./kf6_config` reads the current count
+# from `[Counter] count` in the per-app config file, increments
+# it, writes back, and prints the transition. Run it a few times
+# to see the value persist across processes.
+
+fn main {
+  cli_app {
+    let config = KConfig.new("cuteexample.conf")
+    let group = config.group("Counter")
+
+    let prev = group.readEntry("count", 0)
+    let next = prev + 1
+    group.writeEntry("count", next)
+    config.sync()
+
+    println("count: #{prev} -> #{next}")
+    println("(persisted under [Counter] count in cuteexample.conf)")
+  }
+}

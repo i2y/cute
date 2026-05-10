@@ -1546,6 +1546,7 @@ impl<'a> Checker<'a> {
                 // instantiation+unification treatment as the explicit-
                 // parens form.
                 if let K::Member { receiver, name } = &callee.kind {
+                    let receiver_is_type_ident = self.receiver_is_type_ident(env, receiver);
                     let recv_ty = self.synth(env, receiver);
                     return self.synth_method_call(
                         env,
@@ -1554,6 +1555,7 @@ impl<'a> Checker<'a> {
                         args,
                         block.as_deref(),
                         e.span,
+                        receiver_is_type_ident,
                     );
                 }
                 let callee_ty = self.synth(env, callee);
@@ -1635,7 +1637,16 @@ impl<'a> Checker<'a> {
                         }
                     }
                 }
-                self.synth_method_call(env, &recv_ty, method, args, block.as_deref(), e.span)
+                let receiver_is_type_ident = self.receiver_is_type_ident(env, receiver);
+                self.synth_method_call(
+                    env,
+                    &recv_ty,
+                    method,
+                    args,
+                    block.as_deref(),
+                    e.span,
+                    receiver_is_type_ident,
+                )
             }
 
             K::Member { receiver, name } => {
@@ -1792,8 +1803,15 @@ impl<'a> Checker<'a> {
                     Type::Nullable(t) => *t,
                     other => other,
                 };
-                let inner_result =
-                    self.synth_method_call(env, &inner, method, args, block.as_deref(), e.span);
+                let inner_result = self.synth_method_call(
+                    env,
+                    &inner,
+                    method,
+                    args,
+                    block.as_deref(),
+                    e.span,
+                    false, // `recv?.method` is always an instance call
+                );
                 lift_to_nullable(inner_result)
             }
 
@@ -2169,6 +2187,28 @@ impl<'a> Checker<'a> {
         subst.apply(&ret)
     }
 
+    /// True when `receiver` is a bare class name used in expression
+    /// position — i.e. `QTimer.singleShot(...)` rather than
+    /// `someTimer.start()`. The two produce the same `recv_ty`
+    /// (`Type::Class("QTimer")`) but only the former is the correct
+    /// call form for `static fn` methods. `synth_method_call` uses
+    /// this to filter overloads by `FnTy.is_static`.
+    ///
+    /// A local binding shadows the class name (`let QTimer = ...`),
+    /// so `env.lookup` is consulted first.
+    fn receiver_is_type_ident(&self, env: &TypeEnv<'_>, receiver: &Expr) -> bool {
+        let cute_syntax::ast::ExprKind::Ident(name) = &receiver.kind else {
+            return false;
+        };
+        if env.lookup(name).is_some() {
+            return false;
+        }
+        matches!(
+            self.program.items.get(name),
+            Some(cute_hir::ItemKind::Class { .. })
+        )
+    }
+
     fn synth_method_call(
         &mut self,
         env: &mut TypeEnv<'_>,
@@ -2177,6 +2217,7 @@ impl<'a> Checker<'a> {
         args: &[Expr],
         block: Option<&Expr>,
         call_span: Span,
+        receiver_is_type_ident: bool,
     ) -> Type {
         // Built-in methods on enum / flags values:
         //
@@ -2497,11 +2538,11 @@ impl<'a> Checker<'a> {
             // Class method dispatch with overload resolution. Clone the
             // overload Vec out of self.table first to release the
             // borrow (resolver / check_fn_args mutably borrow self).
-            let overloads = self
+            let all_overloads = self
                 .table
                 .lookup_method_overloads(class_name, &method.name)
                 .to_vec();
-            if overloads.is_empty() {
+            if all_overloads.is_empty() {
                 let suggestion = self.table.classes.get(class_name).and_then(|e| {
                     closest_within(&method.name, e.methods.keys().map(|k| k.as_str()))
                 });
@@ -2518,6 +2559,77 @@ impl<'a> Checker<'a> {
                 }
                 return Type::Error;
             }
+            // Static-vs-instance call form filter, driven by
+            // `FnTy.is_static`. `T.method(...)` keeps only static
+            // overloads; `instance.method(...)` keeps only instance
+            // ones. When the chosen direction has no candidates but
+            // the other does, that's a category error (e.g.
+            // `someTimer.singleShot(...)` calling a static method on
+            // an instance, or `QTimer.start()` calling an instance
+            // method via the type). The one exception is extern-value
+            // classes called as `T.method(...)`: their non-`static fn`
+            // factory/utility methods predate the explicit annotation
+            // and the codegen has long lowered them as `T::method(...)`,
+            // so fall back to the full overload set rather than
+            // breaking existing bindings.
+            let is_extern_value = matches!(
+                self.program.items.get(class_name),
+                Some(cute_hir::ItemKind::Class {
+                    is_extern_value: true,
+                    ..
+                })
+            );
+            let overloads: Vec<crate::table::FnTy> = if receiver_is_type_ident {
+                let static_only: Vec<_> = all_overloads
+                    .iter()
+                    .filter(|f| f.is_static)
+                    .cloned()
+                    .collect();
+                if !static_only.is_empty() {
+                    static_only
+                } else if is_extern_value {
+                    all_overloads.clone()
+                } else {
+                    self.diags.push(Diagnostic::error(
+                        method.span,
+                        format!(
+                            "method `{}` on class `{}` is an instance method; call it on an instance, not the type",
+                            method.name, class_name
+                        ),
+                    ));
+                    for a in args {
+                        let _ = self.synth(env, a);
+                    }
+                    if let Some(b) = block {
+                        let _ = self.synth(env, b);
+                    }
+                    return Type::Error;
+                }
+            } else {
+                let instance_only: Vec<_> = all_overloads
+                    .iter()
+                    .filter(|f| !f.is_static)
+                    .cloned()
+                    .collect();
+                if !instance_only.is_empty() {
+                    instance_only
+                } else {
+                    self.diags.push(Diagnostic::error(
+                        method.span,
+                        format!(
+                            "method `{}` on class `{}` is static; call it as `{}.{}(...)` rather than on an instance",
+                            method.name, class_name, class_name, method.name
+                        ),
+                    ));
+                    for a in args {
+                        let _ = self.synth(env, a);
+                    }
+                    if let Some(b) = block {
+                        let _ = self.synth(env, b);
+                    }
+                    return Type::Error;
+                }
+            };
             self.check_member_pub(class_name, &method.name, method.span);
             let arg_tys: Vec<Type> = args.iter().map(|a| self.synth_no_check(env, a)).collect();
             let chosen = match crate::table::resolve_overload(
@@ -2934,6 +3046,7 @@ impl<'a> Checker<'a> {
             generic_bounds,
             params,
             ret,
+            is_static: false,
         }
     }
 

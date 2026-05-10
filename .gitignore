@@ -147,3 +147,7 @@ Cargo.lock.bak
 # Snapshot test pending
 **/*.snap.new
 **/*.pending-snap
+/examples/kf6_config/kf6_config
+/examples/kf6_config/out
+/examples/kf6_i18n/kf6_i18n
+/examples/kf6_notifications/kf6_notifications

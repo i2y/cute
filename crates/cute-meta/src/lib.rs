@@ -104,6 +104,12 @@ pub struct MethodInfo {
     pub name: String,
     pub params: Vec<ParamInfo>,
     pub return_type: String,
+    /// `true` for `static fn name(...)` declarations — class-scoped
+    /// free functions with no implicit `self`. Header emission
+    /// substitutes `static` for the usual `Q_INVOKABLE` decoration;
+    /// the QMetaObject method table excludes static entries
+    /// (Q_INVOKABLE is meaningless without a meta-object instance).
+    pub is_static: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -768,6 +774,7 @@ mod tests {
                 name: "toggle".into(),
                 params: vec![],
                 return_type: "void".into(),
+                is_static: false,
             }],
             slots: vec![],
         }

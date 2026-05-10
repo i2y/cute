@@ -255,6 +255,7 @@ mod tests {
                 Type::Var(VarId(101)),
             ],
             ret: Type::Var(VarId(100)),
+            is_static: false,
         };
         let (_subst, params, ret) = instantiate(&fn_ty, &mut source);
         // The fresh vars should be Var(0) and Var(1) (allocated in order).

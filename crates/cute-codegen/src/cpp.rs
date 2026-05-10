@@ -293,6 +293,28 @@ fn inline_impls_into_classes(module: &Module) -> Module {
     }
 }
 
+/// Codegen-side discriminator for the class shapes Cute distinguishes
+/// at lowering time. Maps onto `cute_hir::ItemKind::Class` flags but
+/// kept as a flat enum so the per-kind branches in lowering can
+/// `match` rather than cascade through `if self.is_*_class(...)`.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum ClassKind {
+    /// `class X { ... }` deriving from QObject (the v1 default).
+    /// `T.new(...)` returns a heap-alloc'd raw pointer; member access
+    /// uses `->`; lifetime is parent-tree managed.
+    QObject,
+    /// `arc X { ... }` — Cute's reference-counted class form.
+    /// `T.new(...)` wraps the heap object in `cute::Arc<T>`.
+    Arc,
+    /// `extern value X { ... }` — plain C++ value type pulled in via
+    /// `[cpp] includes`. `T.new(args)` lowers to `T(args)` (stack
+    /// construction); member access uses `.`.
+    ExternValue,
+    /// Not a known class — either the name isn't in `prog.items` or
+    /// the entry is a different `ItemKind` (struct, enum, fn, ...).
+    NotAClass,
+}
+
 struct Emitter<'a> {
     stem: String,
     header: String,
@@ -2623,14 +2645,19 @@ impl<'a> Emitter<'a> {
             self.header.push('\n');
         }
 
-        // User methods (fn / slot). Q_INVOKABLE prefix exposes them to
-        // QML / QMetaMethod::invoke(); harmless at compile time without
-        // moc, but useful for IDE annotation.
+        // User methods (fn / slot). For instance methods the
+        // `Q_INVOKABLE` prefix exposes them to QML /
+        // `QMetaMethod::invoke()`; harmless at compile time without
+        // moc, but useful for IDE annotation. `static fn` declarations
+        // emit a `static` qualifier instead — these have no implicit
+        // `this`, are callable as `ClassName::method(args)`, and are
+        // not part of the QMetaObject method table.
         if !info.methods.is_empty() {
             for m in &info.methods {
                 let params = render_param_list(&m.params);
+                let prefix = if m.is_static { "static" } else { "Q_INVOKABLE" };
                 self.header.push_str(&format!(
-                    "    Q_INVOKABLE {ret} {name}({params});\n",
+                    "    {prefix} {ret} {name}({params});\n",
                     ret = m.return_type,
                     name = m.name
                 ));
@@ -6769,7 +6796,7 @@ impl<'a> Lowering<'a> {
         let leaf = path.last()?.name.as_str();
         // Pointer-backed types are tracked separately in
         // `pointer_bindings` — never double-track them.
-        if self.is_qobject_class(leaf) || self.is_arc_class(leaf) {
+        if self.is_ref_class(leaf) {
             return None;
         }
         Some(leaf.to_string())
@@ -6793,7 +6820,7 @@ impl<'a> Lowering<'a> {
             return None;
         };
         let leaf = path.last()?.name.as_str();
-        if self.is_qobject_class(leaf) || self.is_arc_class(leaf) {
+        if self.is_ref_class(leaf) {
             Some(leaf.to_string())
         } else {
             None
@@ -6900,17 +6927,45 @@ impl<'a> Lowering<'a> {
 
     // ---- pointer awareness ---------------------------------------------
 
-    fn is_qobject_class(&self, name: &str) -> bool {
+    /// Discriminator for the Cute class kinds that codegen needs to
+    /// distinguish at lowering time. Computed once via `class_kind`
+    /// and threaded into the per-kind `is_*_class` shorthands +
+    /// the `is_ref_class` "qobject-or-arc" predicate.
+    fn class_kind(&self, name: &str) -> ClassKind {
         let Some(prog) = self.program else {
-            return false;
+            return ClassKind::NotAClass;
         };
-        matches!(
-            prog.items.get(name),
+        match prog.items.get(name) {
+            Some(cute_hir::ItemKind::Class {
+                is_extern_value: true,
+                ..
+            }) => ClassKind::ExternValue,
             Some(cute_hir::ItemKind::Class {
                 is_qobject_derived: true,
                 ..
-            })
-        )
+            }) => ClassKind::QObject,
+            Some(cute_hir::ItemKind::Class { .. }) => ClassKind::Arc,
+            _ => ClassKind::NotAClass,
+        }
+    }
+
+    fn is_qobject_class(&self, name: &str) -> bool {
+        self.class_kind(name) == ClassKind::QObject
+    }
+
+    /// True for `arc X { ... }` — Cute's reference-counted class form.
+    /// `T.new(...)` returns a `cute::Arc<T>`, member access uses `->`,
+    /// and the class derives from `cute::ArcBase` rather than QObject.
+    fn is_arc_class(&self, name: &str) -> bool {
+        self.class_kind(name) == ClassKind::Arc
+    }
+
+    /// True when `name` is a heap-allocated, pointer-accessed class —
+    /// either QObject-derived or `arc`. The two share lowering shape
+    /// (pointer typing, `T.new(...)` returns a handle, member access
+    /// via `->`) so most callers care only about this combined view.
+    fn is_ref_class(&self, name: &str) -> bool {
+        matches!(self.class_kind(name), ClassKind::QObject | ClassKind::Arc)
     }
 
     fn is_error_class(&self, name: &str) -> bool {
@@ -6924,22 +6979,30 @@ impl<'a> Lowering<'a> {
         matches!(prog.items.get(name), Some(cute_hir::ItemKind::Enum { .. }))
     }
 
-    /// True for `arc X { ... }` — the Cute-side ARC class form.
-    /// `T.new(...)` on these returns a `cute::Arc<T>` smart pointer,
-    /// member access uses `->`, and the class itself derives from
-    /// `cute::ArcBase` rather than QObject.
-    fn is_arc_class(&self, name: &str) -> bool {
+    /// True when `class_name` (or any of its supers) declares a
+    /// `static fn method_name(...)`. Walks the super chain so e.g.
+    /// `QGuiApplication.quit()` / `QApplication.quit()` resolve to
+    /// the static `quit` declared on `QCoreApplication`.
+    fn is_static_method_of_class(&self, class_name: &str, method_name: &str) -> bool {
         let Some(prog) = self.program else {
             return false;
         };
-        matches!(
-            prog.items.get(name),
-            Some(cute_hir::ItemKind::Class {
-                is_qobject_derived: false,
-                is_extern_value: false,
+        let mut current = Some(class_name.to_string());
+        while let Some(name) = current {
+            let Some(cute_hir::ItemKind::Class {
+                super_class,
+                static_methods,
                 ..
-            })
-        )
+            }) = prog.items.get(&name)
+            else {
+                return false;
+            };
+            if static_methods.iter().any(|m| m == method_name) {
+                return true;
+            }
+            current = super_class.clone();
+        }
+        false
     }
 
     /// True for `extern value T { ... }` — a plain C++ value type.
@@ -6948,16 +7011,7 @@ impl<'a> Lowering<'a> {
     /// boxing. Codegen never emits a definition for these — they
     /// live in C++ headers pulled in via `[cpp] includes`.
     fn is_extern_value_class(&self, name: &str) -> bool {
-        let Some(prog) = self.program else {
-            return false;
-        };
-        matches!(
-            prog.items.get(name),
-            Some(cute_hir::ItemKind::Class {
-                is_extern_value: true,
-                ..
-            })
-        )
+        self.class_kind(name) == ClassKind::ExternValue
     }
 
     /// True for `struct X { ... }` — Cute's plain value type.
@@ -7463,7 +7517,7 @@ impl<'a> Lowering<'a> {
             cute_types::ty::Type::Generic { base, .. } => base,
             _ => return None,
         };
-        if self.is_qobject_class(leaf_name) || self.is_arc_class(leaf_name) {
+        if self.is_ref_class(leaf_name) {
             Some(leaf_name.to_string())
         } else {
             None
@@ -7618,7 +7672,7 @@ impl<'a> Lowering<'a> {
                 receiver, method, ..
             } if method.name == "new" => {
                 if let K::Ident(class_name) = &receiver.kind {
-                    if self.is_qobject_class(class_name) || self.is_arc_class(class_name) {
+                    if self.is_ref_class(class_name) {
                         return Some(class_name.clone());
                     }
                 }
@@ -7789,7 +7843,7 @@ impl<'a> Lowering<'a> {
                 receiver, method, ..
             } if method.name == "new" => {
                 if let K::Ident(class_name) = &receiver.kind {
-                    return self.is_qobject_class(class_name) || self.is_arc_class(class_name);
+                    return self.is_ref_class(class_name);
                 }
                 false
             }
@@ -8584,26 +8638,22 @@ impl<'a> Lowering<'a> {
                         }
                     }
                 }
-                // `Type.staticMethod(args)` — the receiver is the
-                // type itself rather than an instance. Currently only
-                // recognized for extern value classes (QDateTime,
-                // QColor, etc.) where Qt declares the factory as a
-                // static member. The Cute .qpi binding can't yet
-                // distinguish static fn from instance fn, so we infer:
-                // if the receiver name resolves to an extern value
-                // class AND there's no local binding shadowing it,
-                // treat the call as static. Lowers to `T::method(args)`.
+                // `Type.staticMethod(args)` — receiver is the type
+                // itself, lowers to `T::method(args)`. Recognized
+                // either via an explicit `static fn` declaration, or
+                // via the legacy extern-value rule where every non-
+                // `new` method on an `extern value` class is a static.
                 if let K::Ident(class_name) = &receiver.kind {
-                    if method.name != "new"
-                        && self.is_extern_value_class(class_name)
-                        && !self.is_local_binding(class_name)
-                    {
-                        let args_s = args
-                            .iter()
-                            .map(|a| self.lower_expr(a))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        return format!("{class_name}::{}({args_s})", method.name);
+                    let is_static_call = !self.is_local_binding(class_name)
+                        && (self.is_static_method_of_class(class_name, &method.name)
+                            || (method.name != "new" && self.is_extern_value_class(class_name)));
+                    if is_static_call {
+                        let mut args_v: Vec<String> =
+                            args.iter().map(|a| self.lower_expr(a)).collect();
+                        if let Some(b) = block {
+                            args_v.push(self.lower_block_arg(b));
+                        }
+                        return format!("{class_name}::{}({})", method.name, args_v.join(", "));
                     }
                 }
                 // `T.new(args)` for a QObject-derived class -> heap-alloc.
@@ -8647,37 +8697,46 @@ impl<'a> Lowering<'a> {
                             }
                             return format!("{class_name}{{{}}}", lowered.join(", "));
                         }
-                        if self.is_extern_value_class(class_name) {
-                            // Plain C++ value type — stack/value construct.
-                            // No `new`, no Arc, no parent injection.
-                            let args_s = args
-                                .iter()
-                                .map(|a| self.lower_expr(a))
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            return format!("{class_name}({args_s})");
-                        }
-                        if self.is_qobject_class(class_name) {
-                            let mut args_s: Vec<String> =
-                                args.iter().map(|a| self.lower_expr(a)).collect();
-                            if args_s.is_empty() && self.class_decl.is_some() {
-                                args_s.push("this".to_string());
+                        // `T.new(args)` ctor lowering, branched on
+                        // class shape. Each kind has a distinct C++
+                        // construction form; `NotAClass` (free fn /
+                        // struct path / unknown) falls through.
+                        match self.class_kind(class_name) {
+                            ClassKind::ExternValue => {
+                                // Plain C++ value type — stack/value
+                                // construct. No `new`, no Arc, no
+                                // parent injection.
+                                let args_s = args
+                                    .iter()
+                                    .map(|a| self.lower_expr(a))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                return format!("{class_name}({args_s})");
                             }
-                            return format!("new {class_name}({})", args_s.join(", "));
-                        }
-                        if self.is_arc_class(class_name) {
-                            // ARC class lifetime is via reference-count.
-                            // `T.new(args)` -> `cute::Arc<T>(new T(args))`
-                            // - the smart pointer takes the raw heap
-                            // object and bumps its refcount.
-                            let args_s = args
-                                .iter()
-                                .map(|a| self.lower_expr(a))
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            return format!(
-                                "::cute::Arc<{class_name}>(new {class_name}({args_s}))"
-                            );
+                            ClassKind::QObject => {
+                                let mut args_s: Vec<String> =
+                                    args.iter().map(|a| self.lower_expr(a)).collect();
+                                if args_s.is_empty() && self.class_decl.is_some() {
+                                    args_s.push("this".to_string());
+                                }
+                                return format!("new {class_name}({})", args_s.join(", "));
+                            }
+                            ClassKind::Arc => {
+                                // ARC class lifetime is via reference-
+                                // count. `T.new(args)` -> `cute::Arc<T>(
+                                // new T(args))` — the smart pointer
+                                // takes the raw heap object and bumps
+                                // its refcount.
+                                let args_s = args
+                                    .iter()
+                                    .map(|a| self.lower_expr(a))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                return format!(
+                                    "::cute::Arc<{class_name}>(new {class_name}({args_s}))"
+                                );
+                            }
+                            ClassKind::NotAClass => {}
                         }
                     }
                 }
@@ -10326,6 +10385,7 @@ fn fn_info(f: &FnDecl, ctx: &TypeCtx<'_>) -> MethodInfo {
         name: f.name.name.clone(),
         params: param_infos(&f.params, ctx),
         return_type,
+        is_static: f.is_static,
     }
 }
 

@@ -47,6 +47,7 @@ fn build_fn_ty(f: &FnDecl, program: &ResolvedProgram, source: &mut VarSource) ->
             generic_bounds: Vec::new(),
             params,
             ret,
+            is_static: f.is_static,
         };
     }
     let generics: Vec<VarId> = (0..f.generics.len()).map(|_| source.fresh()).collect();
@@ -79,6 +80,7 @@ fn build_fn_ty(f: &FnDecl, program: &ResolvedProgram, source: &mut VarSource) ->
         generic_bounds,
         params,
         ret,
+        is_static: f.is_static,
     }
 }
 
@@ -266,6 +268,11 @@ pub struct FnTy {
     pub generic_bounds: Vec<Vec<String>>,
     pub params: Vec<Type>,
     pub ret: Type,
+    /// True for `static fn name(...)` on a class — receiverless,
+    /// callable as `ClassName.name(args)`. False for instance methods
+    /// (the common case), prop getters/setters, struct methods, init
+    /// signatures, free fns, and trait methods.
+    pub is_static: bool,
 }
 
 impl FnTy {
@@ -402,6 +409,7 @@ pub fn build(module: &Module, program: &ResolvedProgram, source: &mut VarSource)
                                         generic_bounds: Vec::new(),
                                         params: vec![],
                                         ret: pty.clone(),
+                                        is_static: false,
                                     });
                             }
                             // Synth setter `setName(T)`. Skip if the
@@ -418,6 +426,7 @@ pub fn build(module: &Module, program: &ResolvedProgram, source: &mut VarSource)
                                     generic_bounds: Vec::new(),
                                     params: vec![pty],
                                     ret: Type::void(),
+                                    is_static: false,
                                 });
                             }
                             entry.member_pub.insert(p.name.name.clone(), p.is_pub);
@@ -514,6 +523,7 @@ pub fn build(module: &Module, program: &ResolvedProgram, source: &mut VarSource)
                                             generic_bounds: Vec::new(),
                                             params: vec![],
                                             ret: pty.clone(),
+                                            is_static: false,
                                         },
                                     );
                                 }
@@ -532,6 +542,7 @@ pub fn build(module: &Module, program: &ResolvedProgram, source: &mut VarSource)
                                                 generic_bounds: Vec::new(),
                                                 params: vec![pty],
                                                 ret: Type::void(),
+                                                is_static: false,
                                             },
                                         );
                                     }
@@ -568,6 +579,7 @@ pub fn build(module: &Module, program: &ResolvedProgram, source: &mut VarSource)
                                 generic_bounds: Vec::new(),
                                 params,
                                 ret,
+                                is_static: false,
                             });
                         }
                         ClassMember::Deinit(_) => {
@@ -803,6 +815,7 @@ impl ProgramTable {
                     generic_bounds: raw.generic_bounds.clone(),
                     params,
                     ret,
+                    is_static: raw.is_static,
                 }
             })
             .collect()

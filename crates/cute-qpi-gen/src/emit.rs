@@ -174,7 +174,11 @@ fn emit_methods(
     params_overrides: &std::collections::BTreeMap<String, Vec<String>>,
 ) {
     for m in methods {
-        out.push_str("  fn ");
+        if m.is_static {
+            out.push_str("  static fn ");
+        } else {
+            out.push_str("  fn ");
+        }
         out.push_str(&m.name);
         if !m.params.is_empty() {
             // Two-tier lookup: signature-keyed override
@@ -253,7 +257,51 @@ mod tests {
             params,
             return_ty: ret,
             lifted_bool_ok: true,
+            is_static: false,
         }
+    }
+
+    fn static_method(name: &str, params: Vec<Param>, ret: CuteType) -> Method {
+        Method {
+            name: name.to_string(),
+            params,
+            return_ty: ret,
+            lifted_bool_ok: false,
+            is_static: true,
+        }
+    }
+
+    #[test]
+    fn static_method_emits_static_fn_prefix() {
+        let methods = vec![static_method(
+            "currentDateTime",
+            vec![],
+            CuteType::Named("QDateTime".into()),
+        )];
+        let mut out = String::new();
+        emit_methods(&mut out, &methods, &std::collections::BTreeMap::new());
+        assert!(
+            out.contains("  static fn currentDateTime QDateTime\n"),
+            "expected `static fn` prefix, got:\n{out}",
+        );
+    }
+
+    #[test]
+    fn instance_method_keeps_plain_fn_prefix() {
+        let methods = vec![Method {
+            name: "name".to_string(),
+            params: vec![],
+            return_ty: CuteType::Named("String".into()),
+            lifted_bool_ok: false,
+            is_static: false,
+        }];
+        let mut out = String::new();
+        emit_methods(&mut out, &methods, &std::collections::BTreeMap::new());
+        assert!(out.contains("  fn name String\n"), "got:\n{out}");
+        assert!(
+            !out.contains("static fn"),
+            "instance method must not gain a `static` prefix, got:\n{out}",
+        );
     }
 
     fn p(n: &str, ty: &str) -> Param {

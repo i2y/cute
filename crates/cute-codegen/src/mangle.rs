@@ -402,6 +402,7 @@ impl<'a> Rewriter<'a> {
             is_test: f.is_test,
             display_name: f.display_name.clone(),
             attributes: f.attributes.clone(),
+            is_static: f.is_static,
             span: f.span,
         }
     }

@@ -158,6 +158,47 @@ instance for the process. The let-form pattern is still valid (and
 useful when the type is reused with multiple instances elsewhere),
 but `store` is the recommended shape for true singletons.
 
+### 7. `static fn` — class-scoped static methods
+
+Many Qt / KF6 APIs are static: `QTimer.singleShot(msec, callback)`,
+`QCoreApplication.quit()`, `KSharedConfig.openConfig(...)`,
+`KLocalizedString.setApplicationDomain(...)`. Declare them with
+`static fn` in the class body; call sites use `ClassName.method(args)`
+without an instance receiver.
+
+```ruby
+class Counter {
+  pub prop count : Int, default: 0
+
+  pub static fn loaded(initial: Int) Counter {
+    let c = Counter()
+    c.count = initial
+    c
+  }
+}
+
+# Cute-side
+let c = Counter.loaded(42)
+
+# Binding-side (`static fn` declared in the .qpi)
+QTimer.singleShot(500) { println("hi") }
+QCoreApplication.quit()
+```
+
+Lowering: `T.method(args)` → `T::method(args)` in C++. The header emits
+`static {ret} {name}(...)` instead of the default `Q_INVOKABLE`.
+`static fn` bodies have NO `self` — instance fields / props / methods
+aren't reachable. Coexists with same-named `prop` / instance method
+(Qt's `QTimer` exposes both `Q_PROPERTY(bool singleShot ...)` and the
+static `singleShot(int, Functor)`; the type checker dispatches by
+receiver kind — `t.singleShot = true` is the prop write,
+`QTimer.singleShot(500) { ... }` is the static call).
+
+The type checker rejects mismatched call forms upfront:
+`someTimer.singleShot(500) {...}` (static called on instance) and
+`QTimer.start()` (instance method called via type) both produce a
+directional error rather than passing through to a C++ compile failure.
+
 ## Tests — `suite "X" { test "y" { ... } }` and `test fn`
 
 Cute has a built-in test runner. Two surface forms:
@@ -552,8 +593,9 @@ path = "../local-lib" # for side-by-side dev
 5. **Plain `pub prop X : T, default: V` auto-derives the `<X>Changed` NOTIFY + signal** — no manual `, notify:` / `pub signal` lines needed for the common case. Bare LHS writes inside class methods (`count = count + 1`) go through the auto-generated setter, which emits the signal exactly once. **Don't add a manual `emit countChanged`** — a v1 lint warns; firing the signal twice causes double-redraw bugs. Override the conventional name with `, notify: :customName` (then pair it with `pub signal customName` if you need parameters); use `, constant` to opt out for genuinely immutable storage. For view-local primitive state, prefer `state X : T = init` at the head of the `view` / `widget` body over a wrapper class.
 6. For `gpu_app` projects: confirm `cute install-cute-ui` has been run, use cute_ui widget names (Column / Row / Text / Button / TextField / Image / Svg / ListView / ScrollView / HScrollView / DataTable / Modal / BarChart / LineChart / ProgressBar / Spinner), `onClick` not `onClicked`. Slot-body list literals are typed when the LHS is a `prop List<T>` or a typed `let xs : List<T> = ...` — only untyped `let`/`var` falls back to QVariantList.
 7. For `impl` blocks: receiver is lowercase `self` (the Cute keyword); `Self` (capital) is a type placeholder for the for-type, used in trait method signatures only. `impl` itself has no visibility modifier.
-8. After the user changes anything, run `cute check` to verify before claiming done.
+8. For class-scoped static methods (factories, Qt static utilities like `QTimer.singleShot`, `QCoreApplication.quit`), declare with `static fn` and call as `ClassName.method(args)`. Don't try to call them on an instance, and don't call instance methods via the class name — both are type errors now.
+9. After the user changes anything, run `cute check` to verify before claiming done.
 
 ## Repository
 
-Source: https://github.com/i2y/cute · cute_ui architecture: `docs/CUTE_UI.md` · C++ interop: `docs/CPP_INTEROP.md` · Demos: `examples/` (60 working `.cute` projects: qml / widget / gpu_app / server / cli / Kirigami / charts / multi-file / generics / async / pattern matching / enums / errors / slices / embed / libraries). Tight edit / run loop: `cute watch foo.cute`.
+Source: https://github.com/i2y/cute · cute_ui architecture: `docs/CUTE_UI.md` · C++ interop: `docs/CPP_INTEROP.md` · Demos: `examples/` (60+ working `.cute` projects: qml / widget / gpu_app / server / cli / Kirigami / KF6 (`kf6_config` / `kf6_i18n` / `kf6_notifications`) / charts / multi-file / generics / async / pattern matching / enums / errors / slices / embed / libraries). Tight edit / run loop: `cute watch foo.cute`.

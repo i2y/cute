@@ -344,7 +344,8 @@ fn collect_public_methods(
             return clang::EntityVisitResult::Continue;
         }
         // Static-method gate: opt-in per typesystem class entry.
-        if e.is_static_method() && !spec.include_statics {
+        let is_static_method = e.is_static_method();
+        if is_static_method && !spec.include_statics {
             return clang::EntityVisitResult::Continue;
         }
         // Detect signal status now (before the include / exclude
@@ -479,6 +480,7 @@ fn collect_public_methods(
                         params: params[..arity].to_vec(),
                         return_ty: cute_ret.clone(),
                         lifted_bool_ok: false,
+                        is_static: is_static_method,
                     },
                     is_signal,
                 ));
@@ -511,6 +513,7 @@ fn collect_public_methods(
                             params: lifted_params,
                             return_ty: cute_ret.clone(),
                             lifted_bool_ok: true,
+                            is_static: is_static_method,
                         },
                         is_signal,
                     ));
