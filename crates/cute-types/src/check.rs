@@ -1693,6 +1693,18 @@ impl<'a> Checker<'a> {
                             self.check_member_pub(class_name, &name.name, name.span);
                             return m.as_type();
                         }
+                        // Signals form their own member axis (sender +
+                        // signal name → connect target). The codegen
+                        // pattern-matches the full `obj.signal.connect
+                        // { ... }` shape and emits Qt's modern
+                        // function-pointer `QObject::connect(...)`, so
+                        // the type checker just needs to not reject the
+                        // intermediate `obj.signal` lookup. Soft-pass
+                        // it as Unknown — `.connect(handler)` then
+                        // soft-passes too, and codegen takes over.
+                        if self.table.lookup_signal(class_name, &name.name).is_some() {
+                            return Type::Unknown;
+                        }
                         let suggestion = self.table.classes.get(class_name).and_then(|e| {
                             // Properties + methods + signals all share the
                             // member name space at the call site.
@@ -2872,14 +2884,26 @@ impl<'a> Checker<'a> {
         // genuinely unknown method on a foreign class - silent
         // pass so users don't get spammed for legitimate calls into
         // unbound libraries.
-        if let Some((suggest_class, suggest_method)) = self.suggest_close_method(&method.name) {
-            self.diags.push(Diagnostic::warning(
-                method.span,
-                format!(
-                    "no method `{}` on the receiver's type; did you mean `{}` (from `{}`)?",
-                    method.name, suggest_method, suggest_class
-                ),
-            ));
+        //
+        // `connect` / `disconnect` are exempt: they're the QObject
+        // signal protocol, called on the result of `<obj>.<signal>`
+        // which member-access lowers to `Type::Unknown` (signals
+        // don't have a typed value form yet — see the signal
+        // fallthrough in `K::Member` handling). The typo-suggester
+        // would otherwise propose any class member starting with
+        // `co...` (`content`, `count`, …) every time a user wires
+        // up a signal handler.
+        let is_signal_protocol = method.name == "connect" || method.name == "disconnect";
+        if !is_signal_protocol {
+            if let Some((suggest_class, suggest_method)) = self.suggest_close_method(&method.name) {
+                self.diags.push(Diagnostic::warning(
+                    method.span,
+                    format!(
+                        "no method `{}` on the receiver's type; did you mean `{}` (from `{}`)?",
+                        method.name, suggest_method, suggest_class
+                    ),
+                ));
+            }
         }
         for a in args {
             let _ = self.synth(env, a);

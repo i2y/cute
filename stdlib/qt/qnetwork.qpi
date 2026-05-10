@@ -26,9 +26,11 @@ class QNetworkAccessManager < QObject {
 }
 
 # QNetworkRequest — describes one HTTP request (URL + headers +
-# attributes). Not a QObject in C++; the binding declares no super
-# so Cute treats it as a plain class.
-class QNetworkRequest {
+# attributes). Not a QObject in C++ (pure value type), so the binding
+# declares it as `extern value` — this makes Cute pass it by value
+# and matches the C++ `get(const QNetworkRequest&)` calling convention
+# on QNetworkAccessManager.
+extern value QNetworkRequest {
   fn url QUrl
   fn setUrl(url: QUrl)
   fn header(header: Int) QVariant
@@ -44,6 +46,11 @@ class QNetworkRequest {
 # QNetworkReply — one in-flight or completed HTTP response. Real
 # C++ super is QIODevice (so readAll / readLine work); we declare
 # QObject so the signal subscription path resolves at type-check.
+# 
+# The QIODevice surface (read / readAll / readLine / bytesAvailable
+# / errorString and the readyRead signal pair) is exposed via the
+# extras lists below — libclang only walks the leaf class so without
+# this manual injection those members would be silently dropped.
 class QNetworkReply < QObject {
   signal socketStartedConnecting
   signal requestSent
@@ -55,10 +62,21 @@ class QNetworkReply < QObject {
   signal redirectAllowed
   signal uploadProgress(bytesSent: Int, bytesTotal: Int)
   signal downloadProgress(bytesReceived: Int, bytesTotal: Int)
+  # extra signals (manually declared in typesystem)
+  signal readyRead
+  signal readChannelFinished
 
   fn url QUrl
   fn error Int
   fn abort
   fn isFinished Bool
   fn isRunning Bool
+  # extra methods (manually declared in typesystem)
+  fn readAll QByteArray
+  fn read(maxSize: Int) QByteArray
+  fn readLine QByteArray
+  fn readLine(maxSize: Int) QByteArray
+  fn bytesAvailable Int
+  fn atEnd Bool
+  fn errorString String
 }

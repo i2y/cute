@@ -1,0 +1,55 @@
+# Cute code-syntax highlighting via cute::CodeHighlighter — the
+# concrete QSyntaxHighlighter subclass shipped in the Cute runtime
+# (`runtime/cpp/cute_code_highlighter.h`). Coloring rules are
+# attached at runtime instead of through a per-language subclass.
+#
+# Subclasses QPlainTextEdit directly and owns its highlighter as a
+# `let` field — the highlighter installs itself on the editor's
+# QTextDocument via the convenience constructor and the regex-rule
+# preset paints keywords / strings / numbers / comments at runtime.
+#
+# Run:
+#   cute build examples/code_highlight/code_highlight.cute
+#   ./code_highlight
+
+class HighlightedEditor < QPlainTextEdit {
+  let hl : CodeHighlighter = CodeHighlighter.new(self)
+
+  init {
+    setPlainText(SAMPLE)
+    hl.useFencedPreset()
+  }
+}
+
+fn main {
+  widget_app(window: HighlightedEditor, title: "Cute · code highlighter")
+}
+
+let SAMPLE : String = "# Cute — class with a streaming method
+class Counter {
+  pub prop value : Int, default: 0
+  pub fn bump { value = value + 1 }
+}
+
+# Python — quick-sort one-liner
+def qsort(xs):
+    if len(xs) < 2:
+        return xs
+    pivot = xs[0]
+    return qsort([x for x in xs[1:] if x < pivot]) + [pivot] + qsort([x for x in xs[1:] if x >= pivot])
+
+// JavaScript — debounce helper
+function debounce(fn, ms) {
+    let t = null;
+    return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+    };
+}
+
+// Numbers + booleans + nulls all picked up by the regex preset
+const ANSWER = 42;
+const PI = 3.14159;
+const ENABLED = true;
+const MAYBE = null;
+"

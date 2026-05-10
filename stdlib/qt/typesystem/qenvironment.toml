@@ -1,0 +1,34 @@
+# Typesystem for `stdlib/qt/qenvironment.qpi`. QProcessEnvironment is
+# a value-typed wrapper around the running process's env block plus a
+# `systemEnvironment()` static factory that snapshots the current
+# environment. Used wherever Cute apps need to read OS env vars
+# (`OLLAMA_HOST`, `ANTHROPIC_API_KEY`, custom service URLs, ...) —
+# QSettings covers persistent storage but not env-driven config.
+
+[clang]
+includes = ["${qt_core}"]
+std = "c++17"
+
+[[classes]]
+name = "QProcessEnvironment"
+kind = "value"
+header = "${qt_core}/qprocess.h"
+include_statics = true
+comment = """
+QProcessEnvironment — value type holding the running process's
+environment block. Use `QProcessEnvironment.systemEnvironment()` to
+snapshot the current env, then `value(name, defaultValue)` to read
+a variable with a fallback. The block is a shared-data copy so
+reads from multiple call sites all see the same snapshot.
+"""
+include = [
+  "isEmpty",
+  "contains",
+  "value",
+  "insert",
+  "remove",
+  "clear",
+  "keys",
+  "toStringList",
+  "systemEnvironment",
+]

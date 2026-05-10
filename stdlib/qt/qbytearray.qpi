@@ -8,9 +8,24 @@ extern value QByteArray {
   fn isEmpty Bool
   fn toBase64 QByteArray
   fn toBase64(options: Int) QByteArray
-  fn fromBase64(base64: QByteArray) QByteArray
-  fn fromBase64(base64: QByteArray, options: Int) QByteArray
+  static fn fromBase64(base64: QByteArray) QByteArray
+  static fn fromBase64(base64: QByteArray, options: Int) QByteArray
   fn toInt !Int @lifted_bool_ok
   fn toInt(base: Int) !Int @lifted_bool_ok
   fn toDouble !Float @lifted_bool_ok
+  fn clear
+  fn mid(index: Int) QByteArray
+  fn mid(index: Int, len: Int) QByteArray
+  fn left(n: Int) QByteArray
+  fn right(n: Int) QByteArray
+  fn chop(n: Int)
+  fn trimmed QByteArray
+  fn simplified QByteArray
+  # extra methods (manually declared in typesystem)
+  fn append(other: QByteArray)
+  fn indexOf(needle: QByteArray) Int
+  fn indexOf(needle: QByteArray, from: Int) Int
+  fn contains(needle: QByteArray) Bool
+  fn startsWith(prefix: QByteArray) Bool
+  fn endsWith(suffix: QByteArray) Bool
 }

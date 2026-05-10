@@ -1,0 +1,34 @@
+# Hand-written binding for ModelList<T> — Cute's QObject-pointer
+# range adapter built on top of QRangeModel. The runtime type lives
+# in `runtime/cpp/cute_model.h` (`cute::ModelList<T>` extends
+# QRangeModel publicly), and the codegen lowers a typed
+# `prop xs : ModelList<Book>` to a `cute::ModelList<Book>* m_xs`
+# field plus an aggregate getter. This .qpi exposes the user-callable
+# surface so type-checks like `xs.append(b)` and `xs.at(i).title`
+# resolve against real method signatures rather than soft-passing.
+#
+# `T` here ALWAYS refers to a class type (a QObject*-tracked pointer
+# at the C++ level). `at(i) -> T` therefore returns `Type::Class(T)`
+# — pointer-tracked from Cute's point of view, so codegen emits
+# `m->title` rather than `m.title` when the call site reads
+# `messages.at(i).title`.
+
+class ModelList<T> {
+  fn size Int
+  fn isEmpty Bool
+
+  # Element accessor. Returns a pointer to the row (Cute models this
+  # as `Type::Class(T)`, which is automatically pointer-shaped on the
+  # codegen side because every element is a QObject*).
+  fn at(i: Int) T
+
+  # Structural mutators. Each one fires the matching
+  # beginInsertRows / beginRemoveRows / beginResetModel pair on the
+  # underlying QRangeModel so attached views (QML ListView,
+  # QtWidgets QListView, ...) stay in sync.
+  fn append(item: T)
+  fn prepend(item: T)
+  fn removeAt(i: Int)
+  fn removeLast
+  fn clear
+}

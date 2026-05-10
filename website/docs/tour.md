@@ -712,6 +712,35 @@ The [Memory model](reference.md#memory-model) table summarises
 every ownership form including `T?` (auto-nulling pointer) and
 Qt's COW collection types.
 
+## Subclassing Qt classes — `class X < QSomething`
+
+`class X { ... }` defaults to `< QObject`. To extend any other
+QObject-derived Qt class — `QPlainTextEdit`, `QAbstractListModel`,
+`QGraphicsItem`, `Kirigami.Page`, etc. — write the super explicitly.
+The base class's full type stays reachable via the build mode's Qt
+umbrella include, so nothing extra is needed:
+
+```cute
+class HighlightedEditor < QPlainTextEdit {
+  let hl : CodeHighlighter = CodeHighlighter.new(self)
+
+  init {
+    setPlainText("def fib(n): return 1 if n < 2 else fib(n-1)+fib(n-2)")
+    hl.useFencedPreset()
+  }
+}
+
+fn main {
+  widget_app(window: HighlightedEditor, title: "code")
+}
+```
+
+The synthesized constructor calls the base via
+`: SuperClass(qobject_cast<QWidget*>(parent))` for QWidget-derived
+supers and `: QObject(parent)` for the QObject-default case, so a
+`widget_app(window: ...)` default-construction works out of the
+box. Demo: [`examples/code_highlight`](https://github.com/i2y/cute/tree/main/examples/code_highlight).
+
 ## Auto-`this` for `T.new()` in class methods
 
 ```cute

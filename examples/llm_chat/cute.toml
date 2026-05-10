@@ -1,0 +1,8 @@
+# Multi-source manifest for the LLM chat showcase. `json_util.cute`
+# is shared between llm_chat (the QML chat) and ollama_smoke (the
+# CLI smoke); listing it under [sources] makes it ambiently
+# available to whichever entrypoint is being built without an
+# explicit `use` declaration in each consumer.
+
+[sources]
+paths = ["json_util.cute"]

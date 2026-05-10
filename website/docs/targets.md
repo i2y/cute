@@ -13,6 +13,7 @@ element + `fn main` intrinsic change.
 | Charts / data-vis | `widget Main { QChartView { ... } }` | (auto) | [`examples/charts`](https://github.com/i2y/cute/tree/main/examples/charts) |
 | GPU canvas (cute_ui) | `widget Main { Column { ... } }` | `gpu_app(window: Main, theme: light)` | [`examples/gpu_notes`](https://github.com/i2y/cute/tree/main/examples/gpu_notes) |
 | HTTP server / REST | (no wrapper) | `server_app { QHttpServer.new() ... }` | [`examples/http_hello`](https://github.com/i2y/cute/tree/main/examples/http_hello) |
+| HTTP client / streaming | (no wrapper) | `server_app { QNetworkAccessManager.new() ... }` | [`examples/llm_chat`](https://github.com/i2y/cute/tree/main/examples/llm_chat) — Ollama-backed chat with streaming markdown bubbles |
 | CLI tool with typed flags | (no wrapper) | `fn main(args: List) { cli_app { QCommandLineParser ... } }` | [`examples/cli_args`](https://github.com/i2y/cute/tree/main/examples/cli_args) |
 
 Same `cute build foo.cute && ./foo` workflow for every row.
@@ -71,6 +72,58 @@ Hello from Cute!
 trailing-block lambdas returning strings (or `QHttpServerResponse`
 for status codes / headers). Qt6::HttpServer + Qt6::Network are
 linked automatically. Same Qt event loop drives QML and widgets.
+
+## Streaming HTTP client — Ollama chat in ~280 lines
+
+Cute's `QNetworkAccessManager` binding exposes `readyRead` / `readAll`
+on `QNetworkReply`, so chunked HTTP responses (Server-Sent Events,
+NDJSON, drip endpoints) can be consumed token-by-token without
+waiting for `finished`:
+
+```cute
+fn main {
+  server_app {
+    let manager = QNetworkAccessManager.new()
+    let req = QNetworkRequest.new()
+    req.setUrl(QUrl.new("http://localhost:11434/api/chat"))
+    req.setRawHeader("Content-Type".toUtf8(), "application/json".toUtf8())
+    let reply = manager.post(req, body)
+
+    var buffer : QByteArray = "".toUtf8()
+    let nl = "\n".toUtf8()
+
+    reply.readyRead.connect {
+      buffer.append(reply.readAll())
+      var idx = buffer.indexOf(nl)
+      while idx >= 0 {
+        let line = buffer.left(idx)
+        buffer = buffer.mid(idx + 1)
+        let doc = QJsonDocument.fromJson(line)
+        if doc.isObject() {
+          let token = doc.object().value("message").toObject().value("content").toString()
+          println(token)
+        }
+        idx = buffer.indexOf(nl)
+      }
+    }
+
+    reply.finished.connect { QCoreApplication.quit() }
+  }
+}
+```
+
+[`examples/llm_chat`](https://github.com/i2y/cute/tree/main/examples/llm_chat)
+is the full demo: a QML chat window that streams Ollama replies
+into markdown-rendered bubbles with per-bubble syntax-highlighted
+code blocks (via `cute::CodeHighlighter`, the regex-rule
+`QSyntaxHighlighter` shipped in the runtime). One `cute build`,
+no API keys. Demo scope is intentionally small (single
+conversation, one model, no plugins) — it's a showcase of the
+streaming-chat primitives, not a feature-complete frontend.
+
+Qt6::Network is linked automatically when `QNetworkAccessManager`
+shows up in the generated code — no `cute.toml [cmake]` entry
+needed for the typical client case.
 
 ## `gpu_app` — custom-rendered UI (`cute_ui` runtime)
 

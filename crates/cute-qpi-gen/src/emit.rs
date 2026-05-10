@@ -33,9 +33,7 @@ pub fn emit(file_header: Option<&str>, classes: &[CollectedClass]) -> String {
             }
         }
         match c.spec.kind {
-            ClassKind::Value => {
-                emit_value_class(&mut out, &c.spec.name, &c.methods, &c.spec.params)
-            }
+            ClassKind::Value => emit_value_class(&mut out, c),
             ClassKind::Object => emit_object_class(&mut out, c),
             ClassKind::Enum => emit_enum_decl(&mut out, c),
             ClassKind::Flags => emit_flags_decl(&mut out, c),
@@ -94,14 +92,21 @@ fn emit_flags_decl(out: &mut String, c: &crate::types::CollectedClass) {
     out.push_str(&format!("{} of {}\n", c.spec.name, of));
 }
 
-fn emit_value_class(
-    out: &mut String,
-    name: &str,
-    methods: &[Method],
-    params_overrides: &std::collections::BTreeMap<String, Vec<String>>,
-) {
-    out.push_str(&format!("extern value {name} {{\n"));
-    emit_methods(out, methods, params_overrides);
+fn emit_value_class(out: &mut String, c: &CollectedClass) {
+    out.push_str(&format!("extern value {} {{\n", c.spec.name));
+    emit_methods(out, &c.methods, &c.spec.params);
+    // Manually-injected methods from `extra_methods` in the
+    // typesystem. Used when a useful C++ overload returns a
+    // non-const reference (filtered by clang_walk's no-mutator-
+    // alias rule) or takes a type that isn't in the type_map
+    // (`QByteArrayView` for QByteArray::indexOf etc.).
+    emit_extra_block(
+        out,
+        &c.spec.extra_methods,
+        "fn",
+        "methods",
+        !c.methods.is_empty(),
+    );
     out.push_str("}\n");
 }
 
@@ -161,11 +166,60 @@ fn emit_object_class(out: &mut String, c: &CollectedClass) {
         }
         out.push('\n');
     }
-    if !c.methods.is_empty() && (!c.properties.is_empty() || !c.signals.is_empty()) {
+    // Manually-injected signals from `extra_signals` in the typesystem.
+    // Used to surface base-class signals the libclang walker can't
+    // see — see `ClassSpec::extra_signals`. Emitted verbatim so the
+    // typesystem author owns the Cute-side signature including any
+    // param-name choices.
+    emit_extra_block(
+        out,
+        &c.spec.extra_signals,
+        "signal",
+        "signals",
+        !c.signals.is_empty(),
+    );
+    let has_extra_methods = !c.spec.extra_methods.is_empty();
+    if (!c.methods.is_empty() || has_extra_methods)
+        && (!c.properties.is_empty() || !c.signals.is_empty() || !c.spec.extra_signals.is_empty())
+    {
         out.push('\n');
     }
     emit_methods(out, &c.methods, &c.spec.params);
+    emit_extra_block(
+        out,
+        &c.spec.extra_methods,
+        "fn",
+        "methods",
+        !c.methods.is_empty(),
+    );
     out.push_str("}\n");
+}
+
+/// Splice manually-declared `extra_signals` / `extra_methods` entries
+/// into the .qpi output. `keyword` is the Cute decl prefix (`signal`
+/// or `fn`); `kind` is the human-readable form for the divider
+/// comment (`"signals"` / `"methods"`); `ast_present` controls
+/// whether the divider is emitted at all (we only print it when an
+/// AST-derived counterpart is already there, so single-list bodies
+/// stay clean).
+fn emit_extra_block(
+    out: &mut String,
+    entries: &[String],
+    keyword: &str,
+    kind: &str,
+    ast_present: bool,
+) {
+    if entries.is_empty() {
+        return;
+    }
+    if ast_present {
+        out.push_str(&format!(
+            "  # extra {kind} (manually declared in typesystem)\n"
+        ));
+    }
+    for entry in entries {
+        out.push_str(&format!("  {keyword} {entry}\n"));
+    }
 }
 
 fn emit_methods(
@@ -309,6 +363,131 @@ mod tests {
             name: n.to_string(),
             ty: CuteType::Named(ty.to_string()),
         }
+    }
+
+    fn make_object_spec(name: &str) -> crate::typesystem::ClassSpec {
+        crate::typesystem::ClassSpec {
+            name: name.to_string(),
+            kind: ClassKind::Object,
+            super_name: Some("QObject".to_string()),
+            header: std::path::PathBuf::from("/dev/null"),
+            include: None,
+            exclude: Vec::new(),
+            include_statics: false,
+            params: std::collections::BTreeMap::new(),
+            comment: None,
+            flags_of: None,
+            cpp_namespace: None,
+            extra_signals: Vec::new(),
+            extra_methods: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn extra_signals_emit_after_ast_signals_with_marker_comment() {
+        let mut spec = make_object_spec("QNetworkReply");
+        spec.extra_signals = vec!["readyRead".to_string(), "readChannelFinished".to_string()];
+        let c = crate::types::CollectedClass {
+            spec,
+            methods: vec![],
+            signals: vec![Method {
+                name: "finished".to_string(),
+                params: vec![],
+                return_ty: CuteType::Void,
+                lifted_bool_ok: false,
+                is_static: false,
+            }],
+            properties: vec![],
+            detected_super: None,
+            enum_variants: vec![],
+        };
+        let mut out = String::new();
+        emit_object_class(&mut out, &c);
+        // AST-derived signal first, then marker, then extras.
+        let finished = out
+            .find("signal finished")
+            .expect("finished signal missing");
+        let marker = out.find("# extra signals").expect("marker comment missing");
+        let ready = out.find("signal readyRead").expect("readyRead missing");
+        let chan = out
+            .find("signal readChannelFinished")
+            .expect("readChannelFinished missing");
+        assert!(
+            finished < marker && marker < ready && ready < chan,
+            "ordering wrong:\n{out}"
+        );
+    }
+
+    #[test]
+    fn extra_methods_emit_after_ast_methods_with_marker_comment() {
+        let mut spec = make_object_spec("QNetworkReply");
+        spec.extra_methods = vec![
+            "bytesAvailable Int".to_string(),
+            "readLine QByteArray".to_string(),
+        ];
+        let c = crate::types::CollectedClass {
+            spec,
+            methods: vec![Method {
+                name: "abort".to_string(),
+                params: vec![],
+                return_ty: CuteType::Void,
+                lifted_bool_ok: false,
+                is_static: false,
+            }],
+            signals: vec![],
+            properties: vec![],
+            detected_super: None,
+            enum_variants: vec![],
+        };
+        let mut out = String::new();
+        emit_object_class(&mut out, &c);
+        let abort = out.find("fn abort").expect("abort missing");
+        let marker = out.find("# extra methods").expect("marker comment missing");
+        let bytes = out
+            .find("fn bytesAvailable Int")
+            .expect("bytesAvailable missing");
+        let read = out
+            .find("fn readLine QByteArray")
+            .expect("readLine missing");
+        assert!(
+            abort < marker && marker < bytes && bytes < read,
+            "ordering wrong:\n{out}"
+        );
+    }
+
+    #[test]
+    fn extras_alone_emit_without_marker() {
+        // When no AST-derived signals/methods exist, the marker
+        // comment should be omitted — extras stand on their own.
+        let mut spec = make_object_spec("Tiny");
+        spec.extra_signals = vec!["ping".to_string()];
+        spec.extra_methods = vec!["hello String".to_string()];
+        let c = crate::types::CollectedClass {
+            spec,
+            methods: vec![],
+            signals: vec![],
+            properties: vec![],
+            detected_super: None,
+            enum_variants: vec![],
+        };
+        let mut out = String::new();
+        emit_object_class(&mut out, &c);
+        assert!(
+            out.contains("signal ping\n"),
+            "missing extra signal:\n{out}"
+        );
+        assert!(
+            out.contains("fn hello String\n"),
+            "missing extra method:\n{out}"
+        );
+        assert!(
+            !out.contains("# extra signals"),
+            "extras-only should omit marker:\n{out}"
+        );
+        assert!(
+            !out.contains("# extra methods"),
+            "extras-only should omit marker:\n{out}"
+        );
     }
 
     #[test]

@@ -196,7 +196,19 @@ fn desugar_element(e: &Element, env: &StyleEnv) -> Element {
                     new_members.push(m.clone());
                 }
             }
-            ElementMember::Property { .. } => new_members.push(m.clone()),
+            ElementMember::Property { key, value, span } => {
+                // Property whose value may itself contain a nested
+                // element (e.g. `delegate: RowLayout { Rectangle {
+                // style: Bubble } }` on a ListView, or
+                // `background: Rectangle { ... }` on a Button).
+                // Recurse through the expression so any inner
+                // `style:` references get spliced.
+                new_members.push(ElementMember::Property {
+                    key: key.clone(),
+                    value: desugar_expr(value, env),
+                    span: *span,
+                });
+            }
             ElementMember::Child(c) => {
                 new_members.push(ElementMember::Child(desugar_element(c, env)));
             }

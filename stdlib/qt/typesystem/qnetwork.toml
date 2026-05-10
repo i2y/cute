@@ -23,12 +23,14 @@ include = ["get", "post", "put", "deleteResource", "head"]
 
 [[classes]]
 name = "QNetworkRequest"
-kind = "object"
+kind = "value"
 header = "${qt_network}/qnetworkrequest.h"
 comment = """
 QNetworkRequest — describes one HTTP request (URL + headers +
-attributes). Not a QObject in C++; the binding declares no super
-so Cute treats it as a plain class.
+attributes). Not a QObject in C++ (pure value type), so the binding
+declares it as `extern value` — this makes Cute pass it by value
+and matches the C++ `get(const QNetworkRequest&)` calling convention
+on QNetworkAccessManager.
 """
 include = ["url", "setUrl", "header", "setHeader", "rawHeader", "setRawHeader", "hasRawHeader", "attribute", "setAttribute"]
 
@@ -41,5 +43,28 @@ comment = """
 QNetworkReply — one in-flight or completed HTTP response. Real
 C++ super is QIODevice (so readAll / readLine work); we declare
 QObject so the signal subscription path resolves at type-check.
+
+The QIODevice surface (read / readAll / readLine / bytesAvailable
+/ errorString and the readyRead signal pair) is exposed via the
+extras lists below — libclang only walks the leaf class so without
+this manual injection those members would be silently dropped.
 """
-include = ["readAll", "url", "error", "errorString", "abort", "isFinished", "isRunning"]
+include = ["url", "error", "abort", "isFinished", "isRunning"]
+# QIODevice-derived members. Kept here rather than walking the
+# base class so the binding's surface stays explicit and so we
+# don't accidentally drag in QIODevice's full surface (open /
+# close / waitForBytesWritten / ...) that has no useful Cute
+# meaning on a network reply.
+extra_signals = [
+  "readyRead",
+  "readChannelFinished",
+]
+extra_methods = [
+  "readAll QByteArray",
+  "read(maxSize: Int) QByteArray",
+  "readLine QByteArray",
+  "readLine(maxSize: Int) QByteArray",
+  "bytesAvailable Int",
+  "atEnd Bool",
+  "errorString String",
+]

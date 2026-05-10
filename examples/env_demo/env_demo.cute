@@ -1,0 +1,25 @@
+# QProcessEnvironment demo — read OS environment variables with a
+# fallback. Used by Cute apps that follow the standard env-driven
+# config convention (`OLLAMA_HOST`, `ANTHROPIC_API_KEY`, custom
+# service URLs, ...).
+#
+# Run:
+#   cute build examples/env_demo/env_demo.cute
+#   ./env_demo
+#   USER=alice EDITOR=hx ./env_demo
+
+fn main {
+  cli_app {
+    let env = QProcessEnvironment.systemEnvironment()
+
+    let user = env.value("USER", "(no USER set)")
+    let editor = env.value("EDITOR", "vi")
+    let ollama = env.value("OLLAMA_HOST", "http://localhost:11434")
+
+    let has_path = env.contains("PATH")
+    println("USER         = #{user}")
+    println("EDITOR       = #{editor}")
+    println("OLLAMA_HOST  = #{ollama}")
+    println("contains PATH? #{has_path}")
+  }
+}

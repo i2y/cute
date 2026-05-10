@@ -93,12 +93,15 @@ pub fn load_stdlib(source_map: &mut SourceMap) -> Result<Vec<Module>, BindingErr
         ("qfile.qpi", QFILE_QPI),
         ("qthread.qpi", QTHREAD_QPI),
         ("qprocess.qpi", QPROCESS_QPI),
+        ("qenvironment.qpi", QENVIRONMENT_QPI),
         ("qclipboard.qpi", QCLIPBOARD_QPI),
         // Qt 6.11 QRangeModel: the QAbstractItemModel adapter that
         // wraps a `QList<T*>` of QObject items as a role-driven model
         // for QML views. Loaded unconditionally so `prop ..., model`
         // synthesis can reference the type.
         ("qrangemodel.qpi", QRANGEMODEL_QPI),
+        ("modellist.qpi", MODELLIST_QPI),
+        ("code_highlighter.qpi", CODE_HIGHLIGHTER_QPI),
         ("qwidget.qpi", QWIDGET_QPI),
         ("qmainwindow.qpi", QMAINWINDOW_QPI),
         ("qframe.qpi", QFRAME_QPI),
@@ -396,6 +399,8 @@ const QCORE_QPI: &str = include_str!("../../../stdlib/qt/qcore.qpi");
 const QENUMS_QPI: &str = include_str!("../../../stdlib/qt/qenums.qpi");
 const QOBJECT_QPI: &str = include_str!("../../../stdlib/qt/qobject.qpi");
 const QRANGEMODEL_QPI: &str = include_str!("../../../stdlib/qt/qrangemodel.qpi");
+const MODELLIST_QPI: &str = include_str!("../../../stdlib/qt/modellist.qpi");
+const CODE_HIGHLIGHTER_QPI: &str = include_str!("../../../stdlib/qt/code_highlighter.qpi");
 const QVALUETYPES_QPI: &str = include_str!("../../../stdlib/qt/qvaluetypes.qpi");
 const QBYTEARRAY_QPI: &str = include_str!("../../../stdlib/qt/qbytearray.qpi");
 const QREGULAREXPRESSION_QPI: &str = include_str!("../../../stdlib/qt/qregularexpression.qpi");
@@ -404,6 +409,7 @@ const QDIR_QPI: &str = include_str!("../../../stdlib/qt/qdir.qpi");
 const QFILE_QPI: &str = include_str!("../../../stdlib/qt/qfile.qpi");
 const QTHREAD_QPI: &str = include_str!("../../../stdlib/qt/qthread.qpi");
 const QPROCESS_QPI: &str = include_str!("../../../stdlib/qt/qprocess.qpi");
+const QENVIRONMENT_QPI: &str = include_str!("../../../stdlib/qt/qenvironment.qpi");
 const QCLIPBOARD_QPI: &str = include_str!("../../../stdlib/qt/qclipboard.qpi");
 const QWIDGET_QPI: &str = include_str!("../../../stdlib/qt/qwidget.qpi");
 const QMAINWINDOW_QPI: &str = include_str!("../../../stdlib/qt/qmainwindow.qpi");

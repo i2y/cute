@@ -21,5 +21,29 @@ include = [
   "fromBase64",
   "toInt",
   "toDouble",
+  # Buffer-mutation surface — needed by streaming consumers
+  # (NDJSON / SSE) that accumulate readyRead chunks and split
+  # on a delimiter before parsing each completed record.
+  # `append` / `indexOf` / `contains` etc. are pulled in as
+  # `extra_methods` below: their C++ overloads either return
+  # `QByteArray&` (filtered by clang_walk's no-mutator-alias
+  # rule) or take `QByteArrayView` (not in the type_map).
+  # Manually surfacing the QByteArray-flavored forms avoids a
+  # broader QByteArrayView binding that we don't otherwise need.
+  "clear",
+  "mid",
+  "left",
+  "right",
+  "chop",
+  "trimmed",
+  "simplified",
 ]
 include_statics = true
+extra_methods = [
+  "append(other: QByteArray)",
+  "indexOf(needle: QByteArray) Int",
+  "indexOf(needle: QByteArray, from: Int) Int",
+  "contains(needle: QByteArray) Bool",
+  "startsWith(prefix: QByteArray) Bool",
+  "endsWith(suffix: QByteArray) Bool",
+]

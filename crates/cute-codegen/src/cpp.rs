@@ -1857,9 +1857,23 @@ impl<'a> Emitter<'a> {
     fn emit_qml_app_main(&mut self, spec: &QmlAppSpec) {
         self.source.push_str("\n#include <QGuiApplication>\n");
         self.source.push_str("#include <QQmlApplicationEngine>\n");
+        self.source.push_str("#include <QQuickStyle>\n");
         self.source.push_str("#include <QtQml>\n\n");
 
         self.source.push_str("int main(int argc, char** argv) {\n");
+        // Default the QtQuick.Controls 2 style to "Basic" when the
+        // user hasn't picked one via env var. The native macOS / iOS
+        // styles refuse `background: ...` / `contentItem: ...`
+        // customisation on Button / TextField with a runtime warning,
+        // which the typical Cute QML demo expects to use freely.
+        // Apps that import QtQuick.Controls.Material at the QML side
+        // override Basic on their own ApplicationWindow / control
+        // tree, so this only affects unstyled controls.
+        self.source
+            .push_str("    if (qEnvironmentVariableIsEmpty(\"QT_QUICK_CONTROLS_STYLE\")) {\n");
+        self.source
+            .push_str("        QQuickStyle::setStyle(QStringLiteral(\"Basic\"));\n");
+        self.source.push_str("    }\n");
         self.source
             .push_str("    QGuiApplication app(argc, argv);\n");
         for ty in &spec.types {
@@ -2110,9 +2124,15 @@ impl<'a> Emitter<'a> {
     fn emit_class(&mut self, c: &ClassDecl) -> Result<(), EmitError> {
         // Cute defaults `class X { ... }` (no explicit super) to
         // `class X < QObject`, so the bulk of demos / KDE-style apps
-        // can drop the boilerplate. Other Qt base classes
-        // (QAbstractListModel etc.) still need to be written
-        // explicitly until binding files land.
+        // can drop the boilerplate. Explicitly written supers
+        // (`class HighlightedEditor < QPlainTextEdit`, `class
+        // ReadingItemModel < QAbstractListModel`, …) inherit
+        // through the same emit path: any QObject-derived Qt class
+        // is fine because its full type is reachable via the
+        // build-mode umbrella include (`<QtWidgets>` for widgets,
+        // `<QtQuick>` for QML) plus `<QObject>`. Multi-segment
+        // paths (`Qt::Foo`) join with `::` so `class X < Qt::Foo`
+        // also works.
         //
         // `arc X { ... }` opts out of QObject and emits a pure-ARC
         // `class X : public cute::ArcBase` instead. No moc data, no
@@ -2133,9 +2153,6 @@ impl<'a> Emitter<'a> {
                 _ => return Err(EmitError::UnsupportedSuper(format!("{:?}", t.kind))),
             },
         };
-        if super_name != "QObject" {
-            return Err(EmitError::UnsupportedSuper(super_name));
-        }
 
         let info = build_class_info(c, &super_name, &self.ctx());
         let meta = cute_meta::emit_meta_section(&info);
@@ -2909,11 +2926,35 @@ impl<'a> Emitter<'a> {
             }
         };
 
+        // Base-class initializer in the ctor's mem-init list. Always
+        // pass the user-supplied `parent` through to the base — for
+        // `class X { ... }` and `class X < QObject` this is
+        // `: QObject(parent)`; for QWidget-derived supers
+        // (`class HighlightedEditor < QPlainTextEdit`) it lowers to
+        // `: QPlainTextEdit(qobject_cast<QWidget*>(parent))` so the
+        // QObject* parent the binding-side ctor accepts converts
+        // safely (qobject_cast yields nullptr for non-QWidget
+        // parents, which is the right fallback for a default-
+        // constructed `widget_app(window: X)` instance).
+        //
+        // We can't easily inspect the base class's expected parent
+        // type from here without reaching into qpi-side metadata,
+        // so the rule is "QObject super → pass parent verbatim;
+        // anything else → qobject_cast<QWidget*>". That covers the
+        // common cases (QPlainTextEdit, QTextEdit, QListView,
+        // QAbstractListModel, …) and degrades to nullptr-passing
+        // for any QObject-but-not-QWidget super, which is correct
+        // for default construction even if it loses the parent
+        // pointer when the user explicitly threads one.
+        let base_init = if info.super_class == "QObject" {
+            "QObject(parent)".to_string()
+        } else {
+            format!("{}(qobject_cast<QWidget*>(parent))", info.super_class)
+        };
         let user_inits: Vec<&InitDecl> = c.inits().collect();
         if user_inits.is_empty() {
-            self.source.push_str(&format!(
-                "{name}::{name}(QObject* parent) : QObject(parent) {{"
-            ));
+            self.source
+                .push_str(&format!("{name}::{name}(QObject* parent) : {base_init} {{"));
             if needs_prop_machinery {
                 self.source.push('\n');
                 emit_prop_machinery(
@@ -2930,7 +2971,7 @@ impl<'a> Emitter<'a> {
                 let sig =
                     render_init_param_list(&init.params, &self.ctx(), /*for_decl=*/ false);
                 self.source
-                    .push_str(&format!("{name}::{name}({sig}) : QObject(parent) {{\n"));
+                    .push_str(&format!("{name}::{name}({sig}) : {base_init} {{\n"));
                 emit_prop_machinery(
                     &mut self.source,
                     self.program,
@@ -4728,8 +4769,24 @@ fn is_layout_class(class_name: &str) -> bool {
 fn state_field_init_class(sf: &cute_syntax::ast::StateField) -> Option<String> {
     use cute_syntax::ast::ExprKind as K;
     match &sf.init_expr.kind {
+        // Plain `let x = Foo()` — value-style ctor.
         K::Call { callee, .. } => {
             if let K::Ident(name) = &callee.kind {
+                Some(name.clone())
+            } else {
+                None
+            }
+        }
+        // `let x = Foo.new(args)` — the canonical Cute idiom for
+        // QObject-derived bindings (every Qt class binding lowers
+        // construction through `new`). Without this branch the
+        // field would type-erase to `QObject*` and downstream
+        // member access (`.useFencedPreset()`, `.setPlainText(...)`)
+        // would fail to resolve at C++ compile.
+        K::MethodCall {
+            receiver, method, ..
+        } if method.name == "new" => {
+            if let K::Ident(name) = &receiver.kind {
                 Some(name.clone())
             } else {
                 None
@@ -7719,12 +7776,102 @@ impl<'a> Lowering<'a> {
             K::MethodCall {
                 receiver, method, ..
             } => {
-                let class = self.pointer_class_of(receiver)?;
-                let ret_ty = self.class_method_return_type(&class, &method.name)?;
-                self.pointer_class_from_type_expr(ret_ty)
+                if let Some(class) = self.pointer_class_of(receiver) {
+                    if let Some(ret_ty) = self.class_method_return_type(&class, &method.name) {
+                        if let Some(c) = self.pointer_class_from_type_expr(ret_ty) {
+                            return Some(c);
+                        }
+                    }
+                }
+                // ModelList-element accessor fallback. `messages.at(i)`
+                // / `.first` / `.last` on a `, model` prop returns
+                // `Row*` (a QObject pointer), but the receiver is a
+                // ModelList adapter that the standard pointer-class
+                // chain doesn't recognise as a pointer. Pull the row
+                // class straight off the prop's `List<Row>` type arg
+                // so `let m = messages.at(i); m.role` records `m` as
+                // `Row*` and member access uses `->`.
+                if matches!(method.name.as_str(), "at" | "first" | "last") {
+                    if let Some(row_class) = self.model_prop_row_class_of(receiver) {
+                        return Some(row_class);
+                    }
+                }
+                None
             }
             _ => None,
         }
+    }
+
+    /// Row-class name (e.g. "Message" for a `prop xs : ModelList<Message>`)
+    /// when `recv` is a member access onto a `, model` prop. Used by
+    /// `pointer_class_of` to resolve the return type of element
+    /// accessors (`at`, `first`, `last`) without going through the
+    /// receiver's adapter class — there is no ClassEntry the standard
+    /// chain could land on, since `ModelList<T>` is a parser-level
+    /// surface that lifts to `List<T> + model: true` for downstream
+    /// codegen.
+    fn model_prop_row_class_of(&self, recv: &Expr) -> Option<String> {
+        use cute_syntax::ast::ExprKind as K;
+        let (class_decl, prop_name): (&ClassDecl, &str) = match &recv.kind {
+            // Bare member name inside the surrounding class method
+            // body — `messages` rewrote to `@messages`.
+            K::AtIdent(name) => (self.class_decl?, name.as_str()),
+            // `<obj>.messages` — `obj`'s static class hosts the prop.
+            K::Member { receiver, name } => (
+                self.find_class_decl(&self.pointer_class_of(receiver)?)?,
+                name.name.as_str(),
+            ),
+            // `<obj>.messages()` (no-arg auto-getter call form). Same
+            // shape as K::Member after parser desugaring.
+            K::MethodCall {
+                receiver,
+                method,
+                args,
+                ..
+            } if args.is_empty() => (
+                self.find_class_decl(&self.pointer_class_of(receiver)?)?,
+                method.name.as_str(),
+            ),
+            _ => return None,
+        };
+        for m in &class_decl.members {
+            if let ClassMember::Property(p) = m {
+                if p.name.name == prop_name && p.model {
+                    return Self::row_class_of_property_ty(&p.ty);
+                }
+            }
+        }
+        None
+    }
+
+    /// Look up a top-level `class X { ... }` decl in the surrounding
+    /// module by name. Returns None when the module side-table is
+    /// missing (snapshot-test path) or the class isn't user-defined
+    /// in this module (e.g. it lives in a binding `.qpi`, which has
+    /// no `, model` props in any case).
+    fn find_class_decl(&self, class_name: &str) -> Option<&'a ClassDecl> {
+        let module = self.module?;
+        module.items.iter().find_map(|item| match item {
+            Item::Class(c) if c.name.name == class_name => Some(c),
+            _ => None,
+        })
+    }
+
+    /// Extract `Row` from a `List<Row>` property type. Returns `None`
+    /// for shapes that aren't the parser-lifted `, model`-prop form
+    /// (`List<X>` with one type arg whose base is a class name).
+    fn row_class_of_property_ty(ty: &cute_syntax::ast::TypeExpr) -> Option<String> {
+        use cute_syntax::ast::TypeKind;
+        let TypeKind::Named { path, args } = &ty.kind else {
+            return None;
+        };
+        if path.last().map(|i| i.name.as_str()) != Some("List") || args.len() != 1 {
+            return None;
+        }
+        let TypeKind::Named { path: row_path, .. } = &args[0].kind else {
+            return None;
+        };
+        row_path.last().map(|i| i.name.clone())
     }
 
     /// Whether the value produced by `e` is a QObject pointer (so that
@@ -9719,12 +9866,12 @@ impl<'a> Lowering<'a> {
     }
 
     /// Lower a Cute lambda `{ |a, b| body }` to a C++ generic lambda
-    /// `[&](T a, T b) { body }`. Untyped Cute params (parser placeholder
-    /// `_`) become `auto` so the C++17 generic-lambda mechanism deduces
-    /// the type from the call site. Capture defaults to by-reference -
-    /// the spec's higher-order callback usage (block-arg trailing
-    /// callbacks: `xs.each { |x| ... }`) overwhelmingly wants closure
-    /// semantics rather than copy.
+    /// `<capture>(T a, T b) { body }`. Untyped Cute params (parser
+    /// placeholder `_`) become `auto` so the C++17 generic-lambda
+    /// mechanism deduces the type from the call site.
+    ///
+    /// Capture mode depends on whether we're inside a class / struct
+    /// method body. See [`Self::lambda_capture`] for the rationale.
     fn lower_lambda(&mut self, params: &[Param], body: &cute_syntax::ast::Block) -> String {
         let ctx_opt = self.program.map(TypeCtx::new);
         let params_s: Vec<String> = params
@@ -9741,7 +9888,47 @@ impl<'a> Lowering<'a> {
             })
             .collect();
         let body_s = self.lower_lambda_body(body);
-        format!("[&]({}) {body_s}", params_s.join(", "))
+        let (cap, suffix) = self.lambda_capture_pieces();
+        format!("{cap}({}){suffix} {body_s}", params_s.join(", "))
+    }
+
+    /// Capture-list prefix + post-params suffix (e.g. `mutable`) for
+    /// user-written lambdas (`{ |x| body }` and trailing-block
+    /// callables passed to `obj.signal.connect { ... }`,
+    /// `xs.each { |x| ... }`, etc.).
+    ///
+    /// Two modes:
+    ///
+    /// - **Top-level fn bodies / `cli_app` / `server_app`** — `[&]`,
+    ///   no `mutable`. Locals here live for the entire program
+    ///   (`int main` returns only when `app.exec()` exits, which is
+    ///   when the QCoreApplication::quit signal handler — itself a
+    ///   captured lambda — fires). Capturing by reference lets a
+    ///   `var counter` declared next to a `signal.connect { counter
+    ///   += 1 }` actually mutate the same slot the rest of the body
+    ///   sees.
+    ///
+    /// - **Class / struct method bodies** — `[=, this] mutable`. The
+    ///   method's parameters and locals die when the method returns,
+    ///   but Qt signal connections may fire later — `[&]` would leave
+    ///   dangling references to dead stack slots. By-value capture
+    ///   copies snapshots into the lambda; `mutable` lets the lambda
+    ///   accumulate state across invocations on its own copies (e.g.
+    ///   a token counter that ticks each `readyRead`). Cross-scope
+    ///   sharing should use member fields, which the implicit
+    ///   `this`-by-value capture lets the lambda mutate via
+    ///   `this->member` because `this` is a pointer (the pointee
+    ///   stays addressable as long as the receiver lives).
+    ///
+    /// IIFE wrappers (`[&]() { ... }()`, immediate invocation) are
+    /// emitted directly with `[&]` elsewhere — those don't escape, so
+    /// by-reference capture is always correct regardless of context.
+    fn lambda_capture_pieces(&self) -> (&'static str, &'static str) {
+        if self.class_decl.is_some() || self.struct_decl.is_some() {
+            ("[=, this]", " mutable")
+        } else {
+            ("[&]", "")
+        }
     }
 
     /// Lower the body of a lambda (or value-position block) into a
@@ -9823,7 +10010,10 @@ impl<'a> Lowering<'a> {
         use cute_syntax::ast::ExprKind as K;
         match &block.kind {
             K::Lambda { params, body } => self.lower_lambda(params, body),
-            K::Block(b) => format!("[&]() {}", self.lower_lambda_body(b)),
+            K::Block(b) => {
+                let (cap, suffix) = self.lambda_capture_pieces();
+                format!("{cap}(){suffix} {}", self.lower_lambda_body(b))
+            }
             _ => self.lower_expr(block),
         }
     }
@@ -15341,7 +15531,11 @@ fn add(a: Int, b: Int) Int {
     #[test]
     fn signal_connect_self_lowers_to_qobject_connect() {
         // `self.<signal>.connect { ... }` -> `QObject::connect(this,
-        // &Class::signal, [&]() { ... })`.
+        // &Class::signal, [=, this]() mutable { ... })`. The capture
+        // list is value-by-default inside class methods because Qt
+        // signals fire after the enclosing method has returned, at
+        // which point any `[&]`-captured method parameters / locals
+        // would be dangling references; see `lambda_capture_pieces`.
         let src = r#"
 class Counter {
   signal countChanged
@@ -15353,7 +15547,7 @@ class Counter {
         let r = build(src);
         assert!(
             r.source
-                .contains("QObject::connect(this, &Counter::countChanged, [&]() {"),
+                .contains("QObject::connect(this, &Counter::countChanged, [=, this]() mutable {"),
             "missing self-connect lowering:\n{}",
             r.source
         );
@@ -15920,6 +16114,57 @@ widget Main {
             r.source.contains("QPushButton:hover { background: #3d3d3d"),
             "pseudo-class entries from style blocks should also aggregate:\n{}",
             r.source
+        );
+    }
+
+    #[test]
+    fn style_block_splices_inside_nested_element_in_property_value() {
+        // Element literals can appear nested inside property values
+        // — `delegate: RowLayout { Rectangle { style: Bubble } }` on
+        // a ListView, `background: Rectangle { style: ... }` on a
+        // Button. The style desugar pass has to recurse into those
+        // expression-position elements, otherwise the inner
+        // `style:` reference reaches QML codegen verbatim and the
+        // engine errors with `Cannot assign to non-existent property
+        // "style"`.
+        let src = r##"
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+
+style Bubble {
+  radius: 14
+  color: "#0a84ff"
+}
+
+class Item {
+  pub prop label : String, default: ""
+}
+
+view Main {
+  ApplicationWindow {
+    ListView {
+      delegate: Rectangle {
+        style: Bubble
+      }
+    }
+  }
+}
+"##;
+        let r = build(src);
+        let qml = r
+            .views
+            .iter()
+            .find(|v| v.filename == "Main.qml")
+            .expect("Main.qml view emitted")
+            .qml
+            .clone();
+        assert!(
+            qml.contains("radius: 14") && qml.contains("color: \"#0a84ff\""),
+            "style entries should splice into the nested delegate Rectangle:\n{qml}"
+        );
+        assert!(
+            !qml.contains("style: Bubble"),
+            "the literal `style: Bubble` reference should be gone after splice:\n{qml}"
         );
     }
 
