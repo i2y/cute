@@ -1694,16 +1694,23 @@ impl<'a> Checker<'a> {
                             return m.as_type();
                         }
                         // Signals form their own member axis (sender +
-                        // signal name → connect target). The codegen
-                        // pattern-matches the full `obj.signal.connect
-                        // { ... }` shape and emits Qt's modern
-                        // function-pointer `QObject::connect(...)`, so
-                        // the type checker just needs to not reject the
-                        // intermediate `obj.signal` lookup. Soft-pass
-                        // it as Unknown — `.connect(handler)` then
-                        // soft-passes too, and codegen takes over.
-                        if self.table.lookup_signal(class_name, &name.name).is_some() {
-                            return Type::Unknown;
+                        // signal name → connect target). Lift to a typed
+                        // `Type::SignalRef` so `.connect` / `.disconnect`
+                        // can be checked against the signal's parameter
+                        // list and IDE/LSP hover renders something
+                        // useful. Codegen still pattern-matches the AST
+                        // shape and emits Qt's modern function-pointer
+                        // `QObject::connect(...)` — the typed value here
+                        // is invisible to it.
+                        if let Some((decl_class, params)) =
+                            self.table.lookup_signal(class_name, &name.name)
+                        {
+                            let params = params.clone();
+                            return Type::SignalRef {
+                                class: decl_class,
+                                signal: name.name.clone(),
+                                params,
+                            };
                         }
                         let suggestion = self.table.classes.get(class_name).and_then(|e| {
                             // Properties + methods + signals all share the
@@ -2248,6 +2255,20 @@ impl<'a> Checker<'a> {
             && block.is_none()
         {
             return Type::Prim(Prim::Int);
+        }
+        // `obj.signal.connect { ... }` and `.disconnect()`: the typed
+        // dispatch built on `Type::SignalRef`. Routes through a small
+        // helper so the surrounding generic / class / external logic
+        // doesn't have to learn about this special-cased value type.
+        if let Type::SignalRef {
+            class,
+            signal,
+            params,
+        } = recv_ty
+        {
+            return self.synth_signal_method_call(
+                env, class, signal, params, method, args, block, call_span,
+            );
         }
         // Body-side method-name validation against the surrounding
         // fn's generic bounds. Receiver type is `Type::Var(v)` when
@@ -2884,26 +2905,14 @@ impl<'a> Checker<'a> {
         // genuinely unknown method on a foreign class - silent
         // pass so users don't get spammed for legitimate calls into
         // unbound libraries.
-        //
-        // `connect` / `disconnect` are exempt: they're the QObject
-        // signal protocol, called on the result of `<obj>.<signal>`
-        // which member-access lowers to `Type::Unknown` (signals
-        // don't have a typed value form yet — see the signal
-        // fallthrough in `K::Member` handling). The typo-suggester
-        // would otherwise propose any class member starting with
-        // `co...` (`content`, `count`, …) every time a user wires
-        // up a signal handler.
-        let is_signal_protocol = method.name == "connect" || method.name == "disconnect";
-        if !is_signal_protocol {
-            if let Some((suggest_class, suggest_method)) = self.suggest_close_method(&method.name) {
-                self.diags.push(Diagnostic::warning(
-                    method.span,
-                    format!(
-                        "no method `{}` on the receiver's type; did you mean `{}` (from `{}`)?",
-                        method.name, suggest_method, suggest_class
-                    ),
-                ));
-            }
+        if let Some((suggest_class, suggest_method)) = self.suggest_close_method(&method.name) {
+            self.diags.push(Diagnostic::warning(
+                method.span,
+                format!(
+                    "no method `{}` on the receiver's type; did you mean `{}` (from `{}`)?",
+                    method.name, suggest_method, suggest_class
+                ),
+            ));
         }
         for a in args {
             let _ = self.synth(env, a);
@@ -2912,6 +2921,146 @@ impl<'a> Checker<'a> {
             let _ = self.synth(env, b);
         }
         Type::Unknown
+    }
+
+    /// Type-check `.connect(handler)` / `.disconnect()` on a
+    /// `Type::SignalRef`. Anything else on a signal is a hard error —
+    /// signals aren't ordinary callables.
+    ///
+    /// `connect` accepts the handler in three shapes (mirroring what
+    /// codegen lowers to a callable):
+    ///   - `connect { |a, b| ... }` — explicit-param lambda; bidirectional
+    ///     inference fills in unannotated param types.
+    ///   - `connect { ... }` — bare block; treated as a no-arg handler
+    ///     (codegen wraps it in `[]() { ... }`). Only valid when the
+    ///     signal has zero params.
+    ///   - `connect(fn_ref)` — single positional arg of any callable type.
+    ///
+    /// Handler return is checked against `Type::Unknown` rather than Void
+    /// so handlers may end with any expression — Qt discards signal-
+    /// handler returns anyway.
+    fn synth_signal_method_call(
+        &mut self,
+        env: &mut TypeEnv<'_>,
+        class: &str,
+        signal: &str,
+        params: &[Type],
+        method: &Ident,
+        args: &[Expr],
+        block: Option<&Expr>,
+        call_span: Span,
+    ) -> Type {
+        match method.name.as_str() {
+            "connect" => {
+                self.check_signal_connect_handler(
+                    env, class, signal, params, args, block, call_span,
+                );
+                Type::void()
+            }
+            "disconnect" => {
+                if !args.is_empty() || block.is_some() {
+                    self.diags.push(Diagnostic::error(
+                        call_span,
+                        format!("`disconnect` on signal `{class}::{signal}` takes no arguments"),
+                    ));
+                    self.walk_args_for_diagnostics(env, args, block);
+                }
+                Type::void()
+            }
+            other => {
+                self.diags.push(Diagnostic::error(
+                    method.span,
+                    format!(
+                        "no method `{other}` on signal `{class}::{signal}`; only `connect` and `disconnect` are supported"
+                    ),
+                ));
+                self.walk_args_for_diagnostics(env, args, block);
+                Type::Error
+            }
+        }
+    }
+
+    /// Validate the handler shape passed to `obj.signal.connect(...)`.
+    /// Splits on the three accepted forms (lambda / bare block / other
+    /// callable expression) so each gets the right diagnostic. Internal
+    /// to `synth_signal_method_call`.
+    fn check_signal_connect_handler(
+        &mut self,
+        env: &mut TypeEnv<'_>,
+        class: &str,
+        signal: &str,
+        params: &[Type],
+        args: &[Expr],
+        block: Option<&Expr>,
+        call_span: Span,
+    ) {
+        // Resolve to exactly one handler: trailing block wins, else the
+        // single positional arg.
+        let handler: &Expr = match (args.len(), block) {
+            (0, Some(b)) => b,
+            (1, None) => &args[0],
+            _ => {
+                let provided = args.len() + if block.is_some() { 1 } else { 0 };
+                self.diags.push(Diagnostic::error(
+                    call_span,
+                    format!(
+                        "`connect` on signal `{class}::{signal}` expects exactly one handler, got {provided}"
+                    ),
+                ));
+                self.walk_args_for_diagnostics(env, args, block);
+                return;
+            }
+        };
+        // Bare block (no `|...|`): implicit no-arg callable. Codegen
+        // wraps as `[]() { ... }`. Only valid when the signal has zero
+        // params; otherwise the user needs `{ |a, b| ... }`.
+        if let ExprKind::Block(b) = &handler.kind {
+            if !params.is_empty() {
+                self.diags.push(Diagnostic::error(
+                    handler.span,
+                    format!(
+                        "signal `{class}::{signal}` handler expects {} param(s); use `{{ |...| ... }}` to bind them",
+                        params.len()
+                    ),
+                ));
+            }
+            let mut sub = env.child();
+            self.check_block(&mut sub, b, &Type::void());
+            return;
+        }
+        // Lambda with mismatched arity: emit a signal-specific
+        // diagnostic before falling through to body synth, so users
+        // see "signal X::name handler expects N param(s)" rather than
+        // the bare Fn-vs-Fn render the generic check would produce.
+        if let ExprKind::Lambda {
+            params: lam_params, ..
+        } = &handler.kind
+        {
+            if lam_params.len() != params.len() {
+                self.diags.push(Diagnostic::error(
+                    handler.span,
+                    format!(
+                        "signal `{class}::{signal}` handler expects {} param(s), got {}",
+                        params.len(),
+                        lam_params.len()
+                    ),
+                ));
+                let _ = self.synth(env, handler);
+                return;
+            }
+        }
+        // Lambda (arity-matched) or any other callable expression:
+        // delegate to bidirectional `check` against the synthesized
+        // handler shape. The (Lambda, Fn) arm at the bottom of this
+        // file handles param-type binding + body walking; the
+        // fallthrough handles non-Lambda callables (fn refs etc.).
+        // Unknown return soft-passes whatever the body produces — Qt
+        // discards signal-handler returns.
+        let expected = Type::Fn {
+            params: params.to_vec(),
+            ret: Box::new(Type::Unknown),
+        };
+        let _ = self.check(env, handler, &expected);
     }
 
     /// Direct-call dispatch routing for trait-impl methods on value-typed
@@ -3765,7 +3914,7 @@ impl<'a> Checker<'a> {
             Type::Enum(_) | Type::Flags(_) => true,
             Type::Nullable(inner) => self.is_printable(inner),
             Type::ErrorUnion { ok, .. } => self.is_printable(ok),
-            Type::Fn { .. } | Type::Sym | Type::Var(_) => false,
+            Type::Fn { .. } | Type::Sym | Type::SignalRef { .. } | Type::Var(_) => false,
         }
     }
 }
@@ -6194,5 +6343,248 @@ widget Main {
         // No shape check, synth succeeds (string literal), no diag.
         let src = r#"style A { colour: "red" }"#;
         assert_clean(src);
+    }
+
+    // ---- SignalRef -----------------------------------------------------
+
+    /// Smoke test: `obj.signal.connect { ... }` with a 0-arg signal and
+    /// a bare-block handler type-checks clean. Pins the SignalRef path's
+    /// happy case so it doesn't regress to the old Unknown soft-pass.
+    #[test]
+    fn signal_connect_zero_arg_signal_passes() {
+        assert_clean(
+            r#"
+class X < QObject {
+  signal pinged
+}
+fn run(x: X) {
+  x.pinged.connect {
+  }
+}
+"#,
+        );
+    }
+
+    /// 1-arg signal + 1-param handler with explicit type that matches
+    /// the signal's declared parameter type — clean.
+    #[test]
+    fn signal_connect_typed_param_matches_passes() {
+        assert_clean(
+            r#"
+class X < QObject {
+  signal valueChanged(v: Int)
+}
+fn run(x: X) {
+  x.valueChanged.connect { |n: Int|
+  }
+}
+"#,
+        );
+    }
+
+    /// Signal handler whose trailing expression returns a non-Void
+    /// value: still clean. The `Type::Unknown` we use as the expected
+    /// `ret` in `synth_signal_method_call` deliberately soft-passes any
+    /// concrete return type, since Qt discards signal-handler returns.
+    #[test]
+    fn signal_connect_handler_with_non_void_return_passes() {
+        assert_clean(
+            r#"
+class X < QObject {
+  signal valueChanged(v: Int)
+}
+fn run(x: X) {
+  x.valueChanged.connect { |n: Int|
+    n + 1
+  }
+}
+"#,
+        );
+    }
+
+    /// Wrong-arity handler: signal takes 1 param, handler takes 2.
+    /// Caught at type-check; the previous Unknown soft-pass would
+    /// have accepted this silently.
+    #[test]
+    fn signal_connect_arity_mismatch_errors() {
+        let d = check_str(
+            r#"
+class X < QObject {
+  signal valueChanged(v: Int)
+}
+fn run(x: X) {
+  x.valueChanged.connect { |a, b|
+  }
+}
+"#,
+        );
+        assert!(
+            d.iter().any(|d| d
+                .message
+                .contains("signal `X::valueChanged` handler expects 1 param(s), got 2")),
+            "{:?}",
+            d,
+        );
+    }
+
+    /// Bare-block handler on a signal that has parameters: arity error.
+    /// Bare blocks are no-arg callables; a 1-param signal needs a
+    /// `{ |x| ... }` shape.
+    #[test]
+    fn signal_connect_bare_block_with_signal_params_errors() {
+        let d = check_str(
+            r#"
+class X < QObject {
+  signal valueChanged(v: Int)
+}
+fn run(x: X) {
+  x.valueChanged.connect {
+  }
+}
+"#,
+        );
+        assert!(
+            d.iter().any(|d| d
+                .message
+                .contains("signal `X::valueChanged` handler expects 1 param(s)")),
+            "{:?}",
+            d,
+        );
+    }
+
+    /// Wrong-typed handler param: signal carries Int, handler annotated
+    /// as String. Caught by the existing Lambda-vs-Fn arm in `check`
+    /// mode — emits "lambda parameter declared `String` but call site
+    /// expects `Int`".
+    #[test]
+    fn signal_connect_param_type_mismatch_errors() {
+        let d = check_str(
+            r#"
+class X < QObject {
+  signal valueChanged(v: Int)
+}
+fn run(x: X) {
+  x.valueChanged.connect { |a: String|
+  }
+}
+"#,
+        );
+        assert!(
+            d.iter()
+                .any(|d| d.message.contains("declared `String`")
+                    && d.message.contains("expects `Int`")),
+            "expected lambda-param type-mismatch diag, got: {:?}",
+            d,
+        );
+    }
+
+    /// `.disconnect()` with zero args / no block: clean.
+    #[test]
+    fn signal_disconnect_zero_args_passes() {
+        assert_clean(
+            r#"
+class X < QObject {
+  signal pinged
+}
+fn run(x: X) {
+  x.pinged.disconnect()
+}
+"#,
+        );
+    }
+
+    /// `.disconnect(handler)` is rejected — the type-check arm only
+    /// accepts the no-arg shape.
+    #[test]
+    fn signal_disconnect_with_args_errors() {
+        let d = check_str(
+            r#"
+class X < QObject {
+  signal pinged
+}
+fn run(x: X) {
+  x.pinged.disconnect {
+  }
+}
+"#,
+        );
+        assert!(
+            d.iter().any(|d| d
+                .message
+                .contains("`disconnect` on signal `X::pinged` takes no arguments")),
+            "{:?}",
+            d,
+        );
+    }
+
+    /// Any method other than connect / disconnect on a signal value is
+    /// a real error. Previously soft-passed (silently OK).
+    #[test]
+    fn signal_unknown_method_errors() {
+        let d = check_str(
+            r#"
+class X < QObject {
+  signal pinged
+}
+fn run(x: X) {
+  x.pinged.foo()
+}
+"#,
+        );
+        assert!(
+            d.iter().any(|d| {
+                let m = &d.message;
+                m.contains("no method `foo` on signal `X::pinged`")
+                    && m.contains("only `connect` and `disconnect` are supported")
+            }),
+            "{:?}",
+            d,
+        );
+    }
+
+    /// Regression: typo on the signal name in a member-access position
+    /// still surfaces a "did you mean ..." suggestion. The "no member
+    /// found" fallthrough at the bottom of `K::Member` for class
+    /// receivers always included signal names in its candidate set, but
+    /// this test pins it now that the SignalRef path takes over the
+    /// happy case.
+    #[test]
+    fn signal_typo_member_access_suggests_close_match() {
+        let d = check_str(
+            r#"
+class X < QObject {
+  signal valueChanged
+}
+fn run(x: X) {
+  x.valueChnged.connect {
+  }
+}
+"#,
+        );
+        assert!(
+            d.iter()
+                .any(|d| d.message.contains("did you mean `valueChanged`")),
+            "{:?}",
+            d,
+        );
+    }
+
+    /// Signal ref refines through inheritance: the declaring class is
+    /// preserved on the SignalRef, so `.connect` on a subclass receiver
+    /// still type-checks against the parent's signal params.
+    #[test]
+    fn signal_connect_through_inheritance_passes() {
+        assert_clean(
+            r#"
+class A < QObject {
+  signal valueChanged(v: Int)
+}
+class B < A {}
+fn run(b: B) {
+  b.valueChanged.connect { |n: Int|
+  }
+}
+"#,
+        );
     }
 }

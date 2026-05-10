@@ -6183,6 +6183,7 @@ fn contains_unbound_var(t: &cute_types::ty::Type) -> bool {
         Type::Fn { params, ret } => {
             params.iter().any(contains_unbound_var) || contains_unbound_var(ret)
         }
+        Type::SignalRef { params, .. } => params.iter().any(contains_unbound_var),
         _ => false,
     }
 }
@@ -8639,10 +8640,10 @@ impl<'a> Lowering<'a> {
                     name: connect_name,
                 } = &callee.kind
                 {
-                    if connect_name.name == "connect" {
-                        if let Some(s) = self.try_emit_signal_connect(connect_recv, args, block) {
-                            return s;
-                        }
+                    if let Some(s) =
+                        self.try_emit_signal_method(&connect_name.name, connect_recv, args, block)
+                    {
+                        return s;
                     }
                 }
                 // `<recv>.<method> { ... }` (trailing-block call without
@@ -8906,10 +8907,8 @@ impl<'a> Lowering<'a> {
                 // `Member { receiver: <sender>, name: <signal> }` and we
                 // can resolve <sender>'s class to one whose signal table
                 // contains <signal>.
-                if method.name == "connect" {
-                    if let Some(s) = self.try_emit_signal_connect(receiver, args, block) {
-                        return s;
-                    }
+                if let Some(s) = self.try_emit_signal_method(&method.name, receiver, args, block) {
+                    return s;
                 }
                 // Generic-typed receiver: `xs.method(args)` where `xs`
                 // is bound to a generic param `T`. The C++ template
@@ -9955,19 +9954,14 @@ impl<'a> Lowering<'a> {
         s
     }
 
-    /// Try to recognize and lower `<sender>.<signal>.connect { ... }`
-    /// (or `.connect(handler)`) to Qt's modern function-pointer
-    /// `QObject::connect(sender, &Class::signal, handler)` form.
-    /// Returns `None` when the shape doesn't match (caller falls back
-    /// to the plain method-call lowering).
-    fn try_emit_signal_connect(
-        &mut self,
-        receiver: &Expr,
-        args: &[Expr],
-        block: &Option<Box<Expr>>,
-    ) -> Option<String> {
+    /// Resolve `<sender>.<signal>` from a receiver expression to the
+    /// `(class, signal_name, lowered_sender)` triple that the connect
+    /// / disconnect emitters need. Returns `None` whenever any step
+    /// fails — the caller then falls back to plain method-call
+    /// lowering and the typed surface (or C++ compile) catches the
+    /// real mistake.
+    fn resolve_signal_member(&mut self, receiver: &Expr) -> Option<(String, String, String)> {
         use cute_syntax::ast::ExprKind as K;
-        // Receiver must be a `<sender>.<signal>` member access.
         let K::Member {
             receiver: sender,
             name: signal,
@@ -9975,17 +9969,25 @@ impl<'a> Lowering<'a> {
         else {
             return None;
         };
-        // Resolve the sender's static class so we can name the
-        // member function pointer. Foreign / unanalyzed receivers
-        // bail out, the caller then emits the plain `.connect(...)`.
         let class = self.pointer_class_of(sender)?;
-        // Verify the class really has this signal (walking the super
-        // chain). Otherwise this might be `obj.notASignal.connect`,
-        // which we don't want to silently rewrite.
         let prog = self.program?;
         if !class_has_signal(prog, &class, &signal.name) {
             return None;
         }
+        let sender_s = self.lower_expr(sender);
+        Some((class, signal.name.clone(), sender_s))
+    }
+
+    /// Try to recognize and lower `<sender>.<signal>.connect { ... }`
+    /// (or `.connect(handler)`) to Qt's modern function-pointer
+    /// `QObject::connect(sender, &Class::signal, handler)` form.
+    fn try_emit_signal_connect(
+        &mut self,
+        receiver: &Expr,
+        args: &[Expr],
+        block: &Option<Box<Expr>>,
+    ) -> Option<String> {
+        let (class, signal_name, sender_s) = self.resolve_signal_member(receiver)?;
         // Pick the handler: trailing block wins, otherwise the single
         // positional argument. `connect` takes exactly one callable.
         let handler = if let Some(b) = block {
@@ -9995,11 +9997,52 @@ impl<'a> Lowering<'a> {
         } else {
             return None;
         };
-        let sender_s = self.lower_expr(sender);
         Some(format!(
-            "QObject::connect({sender_s}, &{class}::{}, {handler})",
-            signal.name
+            "QObject::connect({sender_s}, &{class}::{signal_name}, {handler})"
         ))
+    }
+
+    /// Sibling of `try_emit_signal_connect` for `<sender>.<signal>.disconnect()`.
+    /// Lowers to Qt's free-form `QObject::disconnect(sender, &Class::signal,
+    /// nullptr, nullptr)` so the receiver-side bookkeeping matches the
+    /// modern function-pointer connect.
+    fn try_emit_signal_disconnect(
+        &mut self,
+        receiver: &Expr,
+        args: &[Expr],
+        block: &Option<Box<Expr>>,
+    ) -> Option<String> {
+        // disconnect() takes no arguments at the Cute surface — type
+        // checker enforces this on `Type::SignalRef`. Bail if anything
+        // sneaks through so the caller falls back to plain method-call
+        // lowering and the C++ compiler sees the user's mistake.
+        if !args.is_empty() || block.is_some() {
+            return None;
+        }
+        let (class, signal_name, sender_s) = self.resolve_signal_member(receiver)?;
+        Some(format!(
+            "QObject::disconnect({sender_s}, &{class}::{signal_name}, nullptr, nullptr)"
+        ))
+    }
+
+    /// Dispatch `obj.signal.connect/disconnect(...)` to the right
+    /// emitter by method name. Returns `None` for every other method
+    /// name, leaving the caller to fall back to plain method-call
+    /// lowering. Used by both the Call form (`obj.signal.connect { ... }`,
+    /// no parens) and the MethodCall form (`obj.signal.connect(handler)`)
+    /// dispatch sites.
+    fn try_emit_signal_method(
+        &mut self,
+        method_name: &str,
+        receiver: &Expr,
+        args: &[Expr],
+        block: &Option<Box<Expr>>,
+    ) -> Option<String> {
+        match method_name {
+            "connect" => self.try_emit_signal_connect(receiver, args, block),
+            "disconnect" => self.try_emit_signal_disconnect(receiver, args, block),
+            _ => None,
+        }
     }
 
     /// Lower a `block: Some(...)` argument of a Call/MethodCall.

@@ -51,6 +51,21 @@ pub enum Type {
     /// `:foo` symbol literals at expression-position. Compile-time names
     /// for property/signal references.
     Sym,
+    /// Reference to a signal on a class, produced by `obj.signal` member
+    /// access. The AST stays untyped — this is a type-system value only.
+    /// Permits `.connect(handler)` and `.disconnect()`; rejects every
+    /// other method. Distinct from `Type::Fn` — signal-refs are not
+    /// assignable to function-typed variables.
+    ///
+    /// `class` is the **declaring** class (the one walked to by
+    /// `lookup_signal`'s super-class chain). Receiver-side covariance is
+    /// thus stable: `MyReply : QNetworkReply` accessing `.readyRead` and
+    /// the parent reading `.readyRead` produce equal `SignalRef`s.
+    SignalRef {
+        class: String,
+        signal: String,
+        params: Vec<Type>,
+    },
     /// Type variable used by the generic-fn inference pass. Solved into
     /// a `Substitution` during call-site unification (`stage B`).
     Var(VarId),
@@ -127,6 +142,18 @@ impl Type {
                 format!("fn({ps}) -> {}", ret.render())
             }
             Type::Sym => "Symbol".into(),
+            Type::SignalRef {
+                class,
+                signal,
+                params,
+            } => {
+                let ps = params
+                    .iter()
+                    .map(|p| p.render())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("signal {class}::{signal}({ps})")
+            }
             Type::Var(VarId(n)) => format!("?T{n}"),
             Type::Error => "<error>".into(),
             Type::Unknown => "<unknown>".into(),
