@@ -164,6 +164,9 @@ pub enum TokenKind {
     /// The legacy compact form `test fn camelCase { ... }` stays
     /// untouched (suite is purely additive sugar).
     Suite,
+    /// `static fn name(...)` on a class — receiverless, callable as
+    /// `ClassName.name(args)` and lowered to `ClassName::name(args)`.
+    Static,
 
     // -- Punctuation ----------------------------------------------------
     LParen,

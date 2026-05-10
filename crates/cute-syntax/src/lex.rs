@@ -421,6 +421,7 @@ fn keyword_or_ident(s: &str) -> TokenKind {
         "arc" => TokenKind::Arc,
         "store" => TokenKind::Store,
         "suite" => TokenKind::Suite,
+        "static" => TokenKind::Static,
         "true" => TokenKind::Bool(true),
         "false" => TokenKind::Bool(false),
         "nil" => TokenKind::Nil,

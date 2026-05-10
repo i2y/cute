@@ -120,6 +120,12 @@ pub enum ItemKind {
         is_extern_value: bool,
         property_names: Vec<String>,
         signal_names: Vec<String>,
+        /// Names of `static fn` declarations on this class. Used by
+        /// codegen to dispatch `ClassName.method(args)` to the
+        /// `ClassName::method(args)` C++ static call form (vs the
+        /// instance `recv->method(args)` form). Includes both
+        /// user-declared statics and binding-side statics.
+        static_methods: Vec<String>,
         home: ItemHome,
         is_pub: bool,
     },
@@ -358,12 +364,21 @@ pub fn resolve(module: &Module, project: &ProjectInfo) -> ResolveResult {
                         }
                     }
                 }
+                let static_methods: Vec<String> = c
+                    .members
+                    .iter()
+                    .filter_map(|m| match m {
+                        ClassMember::Fn(f) if f.is_static => Some(f.name.name.clone()),
+                        _ => None,
+                    })
+                    .collect();
                 let kind = ItemKind::Class {
                     super_class: super_name,
                     is_qobject_derived: is_qobj,
                     is_extern_value: c.is_extern_value,
                     property_names,
                     signal_names,
+                    static_methods,
                     home: home.clone(),
                     is_pub: c.is_pub,
                 };

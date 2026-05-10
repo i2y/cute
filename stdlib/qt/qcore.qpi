@@ -18,6 +18,19 @@ error QtBoolError {
   failed
 }
 
+# QCoreApplication — base of every Qt app's event loop. Cute users
+# rarely construct one directly (the `cli_app` / `server_app` /
+# `widget_app` / `qml_app` intrinsics manage its lifecycle), but
+# the static methods `quit` / `exit(rc)` are the canonical way to
+# terminate the loop from inside a callback. `QGuiApplication`
+# and `QApplication` inherit these so the bindings transitively
+# cover them.
+class QCoreApplication < QObject {
+  static fn quit
+  static fn exit(retcode: Int)
+  static fn instance QCoreApplication
+}
+
 class QVariant {
   fn isNull Bool
   fn isValid Bool

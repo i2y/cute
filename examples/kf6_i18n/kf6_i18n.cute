@@ -1,0 +1,33 @@
+# kf6_i18n — KDE Frameworks translation showcase.
+#
+# KI18n covers the four common gettext patterns:
+#
+#   - i18n(text)              : plain translatable text
+#   - i18nc(context, text)    : same, with disambiguation context
+#   - i18np(sing, plur, n)    : plural form, %1 in singular/plural
+#                                strings is filled with `n`
+#   - i18ncp(ctx, sing, plur, n) : context + plural
+#
+# Without a .mo / .qm catalog installed, these return the source
+# strings unchanged; the demo is still useful as a syntax tour.
+# A real app would ship translation catalogs and call
+# KLocalizedString.setApplicationDomain("appname") at startup.
+
+fn main {
+  cli_app {
+    let n = 3
+
+    # Direct localized string production via the free-fn shape
+    # (the C++ side resolves these to the KF6 i18n / ki18n macros).
+    println(i18n("Hello, KI18n!"))
+    println(i18np("%1 file", "%1 files", n))
+    println(i18nc("printer status", "Idle"))
+    println(i18ncp("photo album", "%1 image", "%1 images", n))
+
+    # Deferred-resolution form: build a KLocalizedString, subs() in
+    # arguments, materialize with toString() at use site.
+    let msg = ki18n("User %1 has %2 documents")
+    let s = msg.subs("Alice").subs(n).toString()
+    println(s)
+  }
+}

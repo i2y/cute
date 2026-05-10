@@ -1,0 +1,16 @@
+# KF6 KConfig demo. KConfig is KDE's configuration framework —
+# the KDE-native take on QSettings, with stronger features (group
+# inheritance, defaults, immutability, shared singletons across an
+# app). Stdlib binding lives at `stdlib/qt/kconfig.qpi` and is
+# auto-loaded by the driver; this manifest only carries the
+# CMake link wiring.
+
+[cmake]
+find_package = ["KF6Config"]
+# CLI demo: only core machinery (no GUI dialogs / themed
+# accessors). KF6::ConfigGui would pull in Qt6::Gui as a
+# transitive `find_package` requirement.
+link_libraries = ["KF6::ConfigCore"]
+
+[cpp]
+includes = ["<KConfig>", "<KSharedConfig>", "<KConfigGroup>"]

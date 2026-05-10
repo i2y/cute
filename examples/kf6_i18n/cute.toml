@@ -1,0 +1,14 @@
+# KF6 KI18n demo. KI18n is KDE's translation framework — gettext
+# under the hood with a Qt-friendly API. Stdlib binding lives at
+# `stdlib/qt/ki18n.qpi` and is auto-loaded; this manifest only
+# carries the CMake link wiring.
+
+[cmake]
+find_package = ["KF6I18n"]
+link_libraries = ["KF6::I18n"]
+
+# `cute_ki18n.h` bridges KF6's i18n() / ki18n() macros (which
+# take const char*) to Cute's String type (QString). It lives in
+# Cute's runtime/cpp/ which the build adds to the include path.
+[cpp]
+includes = ["<KLocalizedString>", "\"cute_ki18n.h\""]

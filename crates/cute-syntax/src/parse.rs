@@ -639,7 +639,7 @@ impl<'src> Parser<'src> {
             TokenKind::Enum => self.enum_decl(is_pub, /*is_extern=*/ false).map(Item::Enum),
             TokenKind::Flags => self.flags_decl(is_pub, /*is_extern=*/ false).map(Item::Flags),
             TokenKind::Error => self.error_decl(is_pub).map(Item::Enum),
-            TokenKind::Fn | TokenKind::Async => self.fn_decl(is_pub).map(Item::Fn),
+            TokenKind::Fn | TokenKind::Async | TokenKind::Static => self.fn_decl(is_pub).map(Item::Fn),
             TokenKind::Let => self.top_level_let(is_pub).map(Item::Let),
             TokenKind::Var => Err(self.err(
                 "top-level `var` is not supported — module-level mutable state has too many static-init-order and thread-safety footguns. Use `let X : T = ...` for an immutable file-scope binding, or move the mutable state inside a class.".to_string(),
@@ -708,7 +708,10 @@ impl<'src> Parser<'src> {
             // silently ignore a leading `pub` so user-source style
             // can stay uniform with class members.
             let _ = self.eat(&TokenKind::Pub);
-            if !matches!(self.peek(), TokenKind::Fn | TokenKind::Async) {
+            if !matches!(
+                self.peek(),
+                TokenKind::Fn | TokenKind::Async | TokenKind::Static
+            ) {
                 return Err(self.err("expected `fn` inside trait body".to_string()));
             }
             let f = self.fn_decl(false)?;
@@ -753,7 +756,10 @@ impl<'src> Parser<'src> {
             // Impl methods are always public via the impl; accept a
             // leading `pub` for parity with class-member parsing.
             let _ = self.eat(&TokenKind::Pub);
-            if !matches!(self.peek(), TokenKind::Fn | TokenKind::Async) {
+            if !matches!(
+                self.peek(),
+                TokenKind::Fn | TokenKind::Async | TokenKind::Static
+            ) {
                 return Err(self.err("expected `fn` inside impl block".to_string()));
             }
             let f = self.fn_decl(false)?;
@@ -1864,6 +1870,7 @@ impl<'src> Parser<'src> {
             is_test: true,
             display_name: Some(display_name),
             attributes: Vec::new(),
+            is_static: false,
             span: name_span.join(body_span),
         })
     }
@@ -1976,7 +1983,7 @@ impl<'src> Parser<'src> {
                 let f = self.fn_decl(is_pub)?;
                 Ok(vec![ClassMember::Slot(f)])
             }
-            TokenKind::Fn | TokenKind::Async => {
+            TokenKind::Fn | TokenKind::Async | TokenKind::Static => {
                 self.fn_decl(is_pub).map(|f| vec![ClassMember::Fn(f)])
             }
             TokenKind::Init => {
@@ -2376,6 +2383,16 @@ impl<'src> Parser<'src> {
 
     fn fn_decl(&mut self, is_pub: bool) -> Result<FnDecl, ParseError> {
         let start = self.peek_span();
+        // Order: `[pub] [static] [async] fn`. `pub` is already
+        // consumed by the caller (it lives at the item level).
+        // `static` and `async` are mutually compatible — though the
+        // pair is rare in practice (a static async factory).
+        let is_static = if matches!(self.peek(), TokenKind::Static) {
+            self.bump();
+            true
+        } else {
+            false
+        };
         let is_async = if matches!(self.peek(), TokenKind::Async) {
             self.bump();
             true
@@ -2426,6 +2443,7 @@ impl<'src> Parser<'src> {
             is_test: false,
             display_name: None,
             attributes,
+            is_static,
             span: start.join(end),
         })
     }
@@ -2690,7 +2708,10 @@ impl<'src> Parser<'src> {
         let mut methods = Vec::new();
         while !matches!(self.peek(), TokenKind::RBrace | TokenKind::Eof) {
             let member_pub = self.eat(&TokenKind::Pub);
-            if matches!(self.peek(), TokenKind::Fn | TokenKind::Async) {
+            if matches!(
+                self.peek(),
+                TokenKind::Fn | TokenKind::Async | TokenKind::Static
+            ) {
                 let f = self.fn_decl(member_pub)?;
                 methods.push(f);
                 self.skip_newlines();

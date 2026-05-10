@@ -95,6 +95,8 @@ demos-all:
           case "$name" in
             kirigami_hello|calculator_kirigami|reading_list)
               echo "    (skipping $name — KF6Kirigami not installed)" ;;
+            kf6_*)
+              echo "    (skipping $name — KF6 module (KConfig / KI18n / KNotifications / ...) not installed)" ;;
             gpu_*)
               echo "    (skipping $name — Qt 6.11 Canvas Painter / cute_ui runtime not installed)" ;;
             lib_counter_app)

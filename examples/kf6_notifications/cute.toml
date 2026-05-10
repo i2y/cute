@@ -1,0 +1,12 @@
+# KF6 KNotifications demo. KNotifications dispatches to the
+# platform notification system (xdg-portal / D-Bus on Linux,
+# NSUserNotification on macOS, toast on Windows) via a single
+# uniform API. Stdlib binding lives at
+# `stdlib/qt/knotifications.qpi`.
+
+[cmake]
+find_package = ["KF6Notifications"]
+link_libraries = ["KF6::Notifications"]
+
+[cpp]
+includes = ["<KNotification>"]

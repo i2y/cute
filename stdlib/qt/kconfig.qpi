@@ -38,16 +38,28 @@ class KConfig < QObject {
 # subsequent calls return. Pass a filename to open a non-default
 # file. Inherits KConfig's API.
 class KSharedConfig < KConfig {
-  fn openConfig(fileName: String, mode: Int) KSharedConfig
-  fn openStateConfig(fileName: String) KSharedConfig
+  # Open the per-app default config file (process-wide singleton).
+  # The C++ form takes a `QFlags<OpenFlag>` mode — Cute can't yet
+  # express QFlags arguments cleanly, so the binding exposes the
+  # default-mode overloads only. `FullConfig` is the universal
+  # default, sufficient for every demo use case.
+  static fn openConfig KSharedConfig
+  static fn openConfig(fileName: String) KSharedConfig
+  static fn openStateConfig(fileName: String) KSharedConfig
 }
 
 # KConfigGroup: a namespaced view inside a KConfig. Read / write
-# typed entries via readEntry<T> / writeEntry — the binding
-# expresses the common String / Int / Bool / Float overloads as
-# uniquely-named methods (Cute doesn't yet support overloads).
+# typed entries via overloaded `readEntry` / `writeEntry` — Cute's
+# overload resolution dispatches on the default-value type, and
+# C++'s `readEntry<T>` template deduces `T` from the same default.
 # `group(...)` returns a sub-group for hierarchical config.
-class KConfigGroup {
+#
+# Bound as `extern value` because KConfigGroup is a plain C++
+# value type (not QObject-derived) — copies and returns by
+# value, accesses members via `.`. Treating it as `class` would
+# make Cute lower the receiver as a pointer (`group->...`),
+# which doesn't compile against the value-type C++ surface.
+extern value KConfigGroup {
   fn name String
   fn exists Bool
   fn isImmutable Bool
@@ -58,14 +70,14 @@ class KConfigGroup {
   fn group(name: String) KConfigGroup
 
   fn readEntry(key: String, defaultValue: String) String
-  fn readEntryInt(key: String, defaultValue: Int) Int
-  fn readEntryBool(key: String, defaultValue: Bool) Bool
-  fn readEntryFloat(key: String, defaultValue: Float) Float
+  fn readEntry(key: String, defaultValue: Int) Int
+  fn readEntry(key: String, defaultValue: Bool) Bool
+  fn readEntry(key: String, defaultValue: Float) Float
 
   fn writeEntry(key: String, value: String)
-  fn writeEntryInt(key: String, value: Int)
-  fn writeEntryBool(key: String, value: Bool)
-  fn writeEntryFloat(key: String, value: Float)
+  fn writeEntry(key: String, value: Int)
+  fn writeEntry(key: String, value: Bool)
+  fn writeEntry(key: String, value: Float)
 
   fn deleteEntry(key: String)
   fn deleteGroup

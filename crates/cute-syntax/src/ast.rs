@@ -591,6 +591,14 @@ pub struct FnDecl {
     /// codegen synthesizes a `bool*-ok` wrapper at the call site. Empty
     /// for user-written fns that don't need any.
     pub attributes: Vec<Attribute>,
+    /// `true` for `static fn name(...)` declarations inside class /
+    /// arc / struct / extern-value bodies and inside `.qpi` bindings.
+    /// Static fns carry no implicit `self` and are callable as
+    /// `ClassName.fn_name(args)` without an instance receiver. The
+    /// codegen lowers these calls to `ClassName::fn_name(args)`
+    /// (free static member). `false` for instance methods and for
+    /// top-level free functions (where the concept doesn't apply).
+    pub is_static: bool,
     pub span: Span,
 }
 

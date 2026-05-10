@@ -20,6 +20,12 @@ pub struct Method {
     /// emitted so codegen can keep using the bool*-out-arg form
     /// until support for the lifted shape lands.
     pub lifted_bool_ok: bool,
+    /// True when libclang reports the C++ method as `static` and
+    /// the typesystem opted in via `include_statics = true`. The
+    /// emitter prefixes the Cute-side declaration with `static `
+    /// so call sites can use `ClassName.method(args)` without an
+    /// instance receiver.
+    pub is_static: bool,
 }
 
 #[derive(Debug, Clone)]

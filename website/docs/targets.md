@@ -133,3 +133,24 @@ and QtWidgets don't have: `Component` is your StatefulWidget, the
 [`docs/CUTE_UI.md`](https://github.com/i2y/cute/blob/main/docs/CUTE_UI.md)
 for the architecture deep-dive and the cross-framework comparison
 table.
+
+## KDE Frameworks beyond Kirigami
+
+Bundled `.qpi` bindings cover several KF6 modules (KConfig, KI18n,
+KNotifications, KCoreAddons, KIO, KItemModels) — runtime libraries
+any of the targets above can pull in via `cute.toml`'s `[cmake]`
+section. Three demos illustrate the surfaces:
+
+| Demo | What it shows |
+|---|---|
+| [`examples/kf6_config`](https://github.com/i2y/cute/tree/main/examples/kf6_config) | Persistent counter via `KSharedConfig.openConfig(...)` + `KConfigGroup.readEntryInt` / `writeEntryInt` |
+| [`examples/kf6_i18n`](https://github.com/i2y/cute/tree/main/examples/kf6_i18n) | Translation lookups via `KLocalizedString.i18n` / `i18nc` / `i18np` / `i18ncp` + the deferred `ki18n(...).subs(...).toString()` chain |
+| [`examples/kf6_notifications`](https://github.com/i2y/cute/tree/main/examples/kf6_notifications) | Desktop notification via `KNotification` + `QTimer.singleShot { QCoreApplication.quit() }` (both static-fn calls; see [Language tour › Static methods](tour.md#static-methods--static-fn)) |
+
+Linking is per-module: each demo's `cute.toml` declares the
+relevant `find_package` / `link_libraries` (`KF6Config`,
+`KF6I18n`, `KF6Notifications`). Build prerequisites are the KDE
+Frameworks 6 dev packages — `sudo zypper install kf6-config-devel
+kf6-i18n-devel kf6-notifications-devel` on Tumbleweed, `craft
+kconfig ki18n knotifications` via [Craft](https://community.kde.org/Craft)
+on macOS.

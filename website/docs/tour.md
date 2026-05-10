@@ -726,3 +726,66 @@ Inside a class method, `T.new(args)` lowers to `new T(this, args)`
 so the Qt parent-tree wiring is automatic. Outside class methods,
 `T.new()` is `new T(nullptr)` and the caller is responsible for
 parenting.
+
+## Static methods — `static fn`
+
+A class member declared `static fn` carries no implicit `self`
+and is callable as `ClassName.method(args)` without an instance
+receiver. Used widely on Qt's binding side for factories,
+utilities, and the `singleShot` timer pattern.
+
+```cute
+class Counter {
+  pub prop count : Int, default: 0
+
+  # Stateless factory — returns a freshly-set Counter.
+  pub static fn loaded(initial: Int) Counter {
+    let c = Counter()
+    c.count = initial
+    c
+  }
+}
+
+fn main {
+  cli_app {
+    let c = Counter.loaded(42)
+    println("started at: #{c.count}")
+  }
+}
+```
+
+- **No `self`.** `static fn` bodies can't reference instance
+  fields, props, or methods. Use them for stateless factories,
+  helpers, and Qt-side static utilities.
+- **Lowering.** `Type.fn(args)` lowers to `Type::fn(args)` in
+  C++ (the canonical static-member call). Header emits the
+  declaration as `static {ret} {name}(...)` instead of the
+  default `Q_INVOKABLE` (no metaobject slot, since static
+  methods aren't dispatchable from QML).
+- **Coexists with same-named `prop` / instance methods.** Qt's
+  `QTimer` declares both `Q_PROPERTY(bool singleShot ...)` and
+  `static void singleShot(int, Functor)`. The Cute binding
+  exposes both: `t.singleShot = true` (instance prop write) and
+  `QTimer.singleShot(500) { ... }` (static call) coexist — the
+  type checker picks based on the receiver being an instance or
+  the class itself, resolved by call arity.
+- **Bindings.** `.qpi` files can declare `static fn name(...)`
+  directly. `cute-qpi-gen` scrapes C++ static methods and emits
+  them as `static fn` when the typesystem opts in via
+  `include_statics = true`.
+
+Common Qt patterns now spelled directly in Cute:
+
+```cute
+# Fire-and-forget delayed callback (no QTimer instance needed).
+QTimer.singleShot(500) {
+  println("tick")
+  QCoreApplication.quit()
+}
+
+# Quit the event loop from anywhere.
+QCoreApplication.quit()
+
+# Translation lookups via KI18n — see `examples/kf6_i18n/`.
+let greeting = KLocalizedString.i18n("Hello, KI18n!")
+```

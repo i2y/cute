@@ -1,0 +1,31 @@
+# kf6_notifications — send a desktop notification.
+#
+# KNotifications dispatches a notification declaratively (title,
+# text, icon, urgency) to the platform's notification system.
+# Delivery happens via D-Bus on Linux, NSUserNotification on
+# macOS, and a toast on Windows; the binding is uniform.
+#
+# `QTimer.singleShot(msec) { ... }` is a static-fn binding (declared
+# as `static fn singleShot(msec: Int, handler: Handler)` on
+# QTimer): keeps the event loop alive long enough for D-Bus to
+# deliver the notification, then quits the loop via
+# `QCoreApplication.quit()` (also a static fn).
+#
+# Urgency control is omitted here because the C++ setter takes a
+# `KNotification::Urgency` enum that Cute can't construct from a
+# plain Int yet. The platform uses the default urgency level.
+
+fn main {
+  server_app {
+    let n = KNotification.new("cute.hello")
+    n.title = "Hello from Cute"
+    n.text = "This is a test desktop notification sent via KNotifications."
+    n.iconName = "applications-development"
+
+    n.sendEvent()
+
+    QTimer.singleShot(500) {
+      QCoreApplication.quit()
+    }
+  }
+}

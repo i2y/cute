@@ -2231,6 +2231,7 @@ const CUTE_TEST_H: &str = include_str!("../../../runtime/cpp/cute_test.h");
 const CUTE_GENERIC_H: &str = include_str!("../../../runtime/cpp/cute_generic.h");
 const CUTE_FUNCTION_H: &str = include_str!("../../../runtime/cpp/cute_function.h");
 const CUTE_MODEL_H: &str = include_str!("../../../runtime/cpp/cute_model.h");
+const CUTE_KI18N_H: &str = include_str!("../../../runtime/cpp/cute_ki18n.h");
 
 fn write_runtime_headers_if_changed(dir: &Path) -> std::io::Result<()> {
     write_if_changed(&dir.join("cute_arc.h"), CUTE_ARC_H)?;
@@ -2244,6 +2245,7 @@ fn write_runtime_headers_if_changed(dir: &Path) -> std::io::Result<()> {
     write_if_changed(&dir.join("cute_generic.h"), CUTE_GENERIC_H)?;
     write_if_changed(&dir.join("cute_function.h"), CUTE_FUNCTION_H)?;
     write_if_changed(&dir.join("cute_model.h"), CUTE_MODEL_H)?;
+    write_if_changed(&dir.join("cute_ki18n.h"), CUTE_KI18N_H)?;
     Ok(())
 }
 
