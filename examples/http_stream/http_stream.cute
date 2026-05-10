@@ -1,0 +1,57 @@
+# Streaming HTTP via QNetworkReply::readyRead — proves that the
+# QIODevice-derived signal/method surface (readyRead, readAll,
+# bytesAvailable, errorString, ...) is exposed by the qnetwork.qpi
+# binding. Without this, only `finished` is observable, which forces
+# every consumer to wait for the full response — fatal for SSE /
+# NDJSON token-by-token streaming (Anthropic / OpenAI / Ollama).
+#
+# Default target is httpbin.org/stream/5 — a well-known streaming
+# test endpoint that emits 5 JSON lines as separate chunks. Pass
+# any URL as argv[1] to override.
+#
+# Run:
+#   cute build examples/http_stream/http_stream.cute
+#   ./http_stream                     # → httpbin.org/stream/5
+#   ./http_stream http://localhost:PORT/   # → custom (e.g. http_hello)
+
+fn main(args: List) {
+  server_app {
+    let manager = QNetworkAccessManager.new()
+    let target = if args.size() > 1 {
+      args.at(1)
+    } else {
+      "http://httpbin.org/stream/5"
+    }
+    let url = QUrl.new(target)
+    let req = QNetworkRequest.new()
+    req.setUrl(url)
+    let reply = manager.get(req)
+
+    var totalBytes : Int = 0
+    var chunks : Int = 0
+
+    # readyRead fires once per chunk that arrives — the showcase
+    # signal for SSE / NDJSON streaming consumers. readAll drains
+    # the reply's internal buffer non-destructively to the next
+    # chunk, so each invocation returns only the bytes that have
+    # arrived since the previous read.
+    reply.readyRead.connect {
+      let chunk = reply.readAll()
+      totalBytes = totalBytes + chunk.size()
+      chunks = chunks + 1
+      println("[chunk #{chunks}] +#{chunk.size()} bytes (total: #{totalBytes})")
+    }
+
+    reply.finished.connect {
+      let code = reply.error()
+      if code == 0 {
+        println("[done] #{chunks} chunks, #{totalBytes} bytes total")
+      } else {
+        println("[error] code=#{code}: #{reply.errorString()}")
+      }
+      QCoreApplication.quit()
+    }
+
+    println("requesting #{url.toString()}")
+  }
+}

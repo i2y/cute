@@ -59,6 +59,6 @@ extern value QJsonDocument {
   fn toJson QByteArray
   fn toJson(format: Int) QByteArray
   fn toVariant QVariant
-  fn fromJson(json: QByteArray) QJsonDocument
-  fn fromVariant(variant: QVariant) QJsonDocument
+  static fn fromJson(json: QByteArray) QJsonDocument
+  static fn fromVariant(variant: QVariant) QJsonDocument
 }

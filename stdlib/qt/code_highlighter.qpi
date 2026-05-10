@@ -1,0 +1,45 @@
+# Hand-written binding for `cute::CodeHighlighter` — the regex-rule
+# QSyntaxHighlighter shipped in `runtime/cpp/cute_code_highlighter.h`.
+#
+# Sidesteps the language-level gap that Cute can't yet emit
+# `void highlightBlock(const QString&) override` for arbitrary
+# subclasses of QSyntaxHighlighter — `cute::CodeHighlighter` is a
+# concrete C++ subclass and Cute users configure it via runtime
+# rules instead of writing a per-language subclass.
+#
+# Real C++ super is QSyntaxHighlighter (which is QObject-derived);
+# the binding declares `< QObject` so signal subscription /
+# parent ownership / `.deleteLater()` resolve through the standard
+# QObject path. The `parent` constructor argument is a QTextDocument
+# — pass the doc you want highlighted (`editor.document` in the
+# QtWidgets path, or the QML `TextEdit.textDocument` accessor on
+# QML-side editors).
+
+class CodeHighlighter < QObject {
+  # Append a (regex, color) coloring rule. `bold: true` flips the
+  # font weight to DemiBold. Rules apply in append order, so a
+  # broad rule (identifiers) followed by a narrower one (keywords)
+  # gets the refinement you'd expect.
+  fn addRule(pattern: String, color: QColor)
+  fn addRule(pattern: String, color: QColor, bold: Bool)
+
+  # Drop every rule and refresh — useful when swapping languages
+  # on the same editor (e.g. Python → Cute).
+  fn clearRules
+
+  # One-call preset for fenced-codeblock syntax: strings, numbers,
+  # a generic keyword bucket spanning Python / JS / Rust / Cute /
+  # C-likes, and `#` / `//` comments. Reads against both light and
+  # dark backgrounds. Used by the LLM chat showcase to color
+  # ```code``` regions in assistant replies.
+  fn useFencedPreset
+
+  # QML attach helper: build a highlighter for any QML element
+  # exposing a `textDocument : QQuickTextDocument` property
+  # (TextEdit / TextArea). Use from a QML element body via
+  # `Component.onCompleted: CodeHighlighter.attachToQmlTextItem(this)`,
+  # or from a Cute slot wired to onCompleted. Loads the fenced
+  # preset automatically; returns the new highlighter parented
+  # to the QML item so it shares the item's lifetime.
+  static fn attachToQmlTextItem(textItem: QObject) CodeHighlighter
+}

@@ -1,0 +1,27 @@
+# JSON string-escape helper shared between llm_chat.cute and
+# ollama_smoke.cute. Both build their request body as a hand-rolled
+# JSON string (Cute's QJsonObject binding doesn't yet expose `insert`
+# / `append` / `QJsonValue` constructors on the write side); this
+# escaper lives here so the two consumers share one source of truth
+# for the wire-format quoting rules.
+
+# Per-character escape. Cute fn bodies don't accept `else if`
+# (only block-element bodies do), so the multi-branch dispatch
+# uses guard-style single-`if` returns instead of a nested
+# if/else tree.
+fn escapeChar(ch: String) String {
+  if ch == "\"" { return "\\\"" }
+  if ch == "\\" { return "\\\\" }
+  if ch == "\n" { return "\\n" }
+  if ch == "\r" { return "\\r" }
+  ch
+}
+
+pub fn jsonString(s: String) String {
+  var out = "\""
+  for ch in s {
+    out = out + escapeChar(ch)
+  }
+  out = out + "\""
+  out
+}

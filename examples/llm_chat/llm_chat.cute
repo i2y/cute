@@ -1,0 +1,457 @@
+# Cute LLM chat — Ollama-backed local chat client. Streaming token
+# rendering, markdown, code-block syntax highlighting, native window
+# chrome, zero API key. Showcase scope: single conversation, one
+# model, no plugins / settings UI — see `README.md`.
+#
+# Run:
+#   ollama serve &
+#   ollama pull qwen2.5-coder:7b       # ~5 GB; or qwen2.5:0.5b for ~400 MB
+#   cute build examples/llm_chat/llm_chat.cute
+#   ./llm_chat
+
+use qml "QtQuick"
+use qml "QtQuick.Controls"
+use qml "QtQuick.Controls.Basic"
+use qml "QtQuick.Layouts"
+
+class Message {
+  pub prop role : String, default: "user"
+  pub prop content : String, default: ""
+}
+
+class Chat {
+  pub prop messages : ModelList<Message>, default: []
+
+  # Tokens accumulate here while the assistant is streaming; once
+  # `done: true` arrives, this string is moved into the messages list
+  # and reset. QML binds to it via `Chat.currentDraft` so the typing
+  # bubble updates as tokens arrive.
+  pub prop currentDraft : String, default: ""
+
+  pub prop currentModel : String, default: "qwen2.5-coder:7b"
+  pub prop isStreaming : Bool, default: false
+  pub prop statusText : String, default: "ready"
+
+  # Long-lived network manager. Reused for every request so we don't
+  # leak QNetworkAccessManager instances, and so HTTP keep-alive can
+  # pool the localhost connection across turns.
+  let manager : QNetworkAccessManager = QNetworkAccessManager.new()
+
+  # NDJSON streaming buffer — accumulates `readyRead` chunks until a
+  # complete `\n`-terminated record can be parsed off. Held as a
+  # member field rather than a `send()` local because the connect
+  # lambda captures by value inside class methods (`[=, this] mutable`),
+  # so a method-local `var` would become a per-invocation copy
+  # detached from the rest of the request.
+  var pendingBuffer : QByteArray = "".toUtf8()
+
+  pub fn ollamaUrl String {
+    let env = QProcessEnvironment.systemEnvironment()
+    env.value("OLLAMA_HOST", "http://localhost:11434")
+  }
+
+  # Slot for QML's `Component.onCompleted` on assistant TextEdits.
+  # Cute classes get registered as QML types automatically, so the
+  # delegate body can call `chat.attachCodeHighlighter(this)`. We
+  # delegate straight to the runtime helper, which pulls the
+  # textDocument property and sets up rule-based coloring on the
+  # bubble's QTextDocument. Routing through Chat means the QML side
+  # never has to mention the binding-class CodeHighlighter
+  # directly, which isn't qmlRegisterType'd.
+  pub fn attachCodeHighlighter(textItem: QObject) {
+    CodeHighlighter.attachToQmlTextItem(textItem)
+  }
+
+  pub fn send(text: String) {
+    if isStreaming {
+      return
+    }
+    if text == "" {
+      return
+    }
+
+    # Push user message into the feed.
+    let userMsg = Message.new()
+    userMsg.role = "user"
+    userMsg.content = text
+    messages.append(userMsg)
+
+    # Reset draft + flip streaming flag so the typing bubble appears.
+    currentDraft = ""
+    isStreaming = true
+    statusText = "streaming…"
+    pendingBuffer = "".toUtf8()
+
+    # Build request. Ollama's /api/chat takes a JSON body with the
+    # rolling messages array plus `stream: true`. We assemble the
+    # body as a JSON string by hand to avoid pulling QJsonObject into
+    # write-side play (the parsing side is plenty for now).
+    let url = QUrl.new(ollamaUrl() + "/api/chat")
+    let req = QNetworkRequest.new()
+    req.setUrl(url)
+    req.setRawHeader("Content-Type".toUtf8(), "application/json".toUtf8())
+
+    let body : QByteArray = buildBody(text)
+    let reply = manager.post(req, body)
+
+    let nl = "\n".toUtf8()
+
+    reply.readyRead.connect {
+      pendingBuffer.append(reply.readAll())
+      var idx = pendingBuffer.indexOf(nl)
+      while idx >= 0 {
+        let line = pendingBuffer.left(idx)
+        pendingBuffer = pendingBuffer.mid(idx + 1)
+        if line.size() > 0 {
+          let doc = QJsonDocument.fromJson(line)
+          if doc.isObject() {
+            let obj = doc.object()
+            let msg = obj.value("message").toObject()
+            let token = msg.value("content").toString()
+            if token != "" {
+              currentDraft = currentDraft + token
+            }
+          }
+        }
+        idx = pendingBuffer.indexOf(nl)
+      }
+    }
+
+    reply.finished.connect {
+      # Drain any tail without a trailing newline.
+      pendingBuffer.append(reply.readAll())
+      if pendingBuffer.size() > 0 {
+        let doc = QJsonDocument.fromJson(pendingBuffer)
+        if doc.isObject() {
+          let msg = doc.object().value("message").toObject()
+          let tail = msg.value("content").toString()
+          if tail != "" {
+            currentDraft = currentDraft + tail
+          }
+        }
+      }
+      # Promote the accumulated draft into a permanent message; the
+      # next `send()` call will iterate `messages` directly to assemble
+      # the conversation history.
+      let asstMsg = Message.new()
+      asstMsg.role = "assistant"
+      asstMsg.content = currentDraft
+      messages.append(asstMsg)
+      currentDraft = ""
+      isStreaming = false
+      let code = reply.error()
+      if code == 0 {
+        statusText = "ready"
+      } else {
+        statusText = "error: #{reply.errorString()}"
+      }
+    }
+  }
+
+  fn buildBody(text: String) QByteArray {
+    # Hand-rolled JSON. Ollama's /api/chat is stateless, so each
+    # request carries the full conversation: every Message in the
+    # `messages` ModelList plus the new user turn we're about to
+    # send. Iteration walks the ModelList directly — `at(i)` returns
+    # `Row*` for the typed prop, which Cute's codegen now lowers as
+    # a real pointer (no need for a parallel history string).
+    var entries = ""
+    for i in 0..messages.size() {
+      let m = messages.at(i)
+      if i > 0 {
+        entries = entries + ","
+      }
+      entries = entries + "{\"role\":\"" + m.role + "\",\"content\":" + jsonString(m.content) + "}"
+    }
+    if messages.size() > 0 {
+      entries = entries + ","
+    }
+    entries = entries + "{\"role\":\"user\",\"content\":" + jsonString(text) + "}"
+    let body = "{\"model\":\"" + currentModel + "\",\"stream\":true,\"messages\":[" + entries + "]}"
+    body.toUtf8()
+  }
+}
+
+# `jsonString(...)` lives in `json_util.cute`, shared with
+# `ollama_smoke.cute`. The cute.toml `[sources]` entry pulls it in
+# automatically.
+
+# Visual styles. `style X { ... }` is a Cute primitive that names a
+# bag of property assignments, then `style: X` on an element splices
+# them in verbatim AT CODEGEN TIME. The reference must resolve
+# statically — `style: BubbleBase` works, but `style: if ... { A }
+# else { B }` would emit a literal QML `style:` property assignment,
+# which Rectangle / Label don't have. So we use `style:` for
+# shared/static silhouette and overlay per-row conditional values
+# (color, border.color) inline on the element.
+#
+# In QML mode the keys must match the receiver's QML properties
+# (`radius`, `color`, `border.color`, …); the QSS shorthand
+# vocabulary (`borderRadius`, `hover.X`, etc.) is QtWidgets-only.
+
+# Shared silhouette for every bubble — user, assistant, streaming.
+# Per-role colors sit inline on each element, since the conditional
+# can't be expressed as a single named style.
+
+style BubbleBase {
+  radius: 14
+  border.width: 1
+}
+
+# Input-row frame. Always white with a 1px zinc border at rest;
+# focus accent overlays inline because it depends on
+# `input.activeFocus` which is a runtime QML expression.
+
+style InputFrame {
+  radius: 14
+  color: "#ffffff"
+  border.width: 1
+}
+
+# Common role-label typography (the "YOU" / "ASSISTANT" caption
+# above each bubble's body text). Color is per-role, applied inline.
+
+style RoleLabel {
+  font.pixelSize: 10
+  font.weight: Font.DemiBold
+  font.letterSpacing: 0.6
+  font.capitalization: Font.AllUppercase
+}
+
+# Common bubble-body typography. Color is per-role, applied inline.
+
+style BubbleBody {
+  font.pixelSize: 14
+  wrapMode: Text.Wrap
+  textFormat: Text.MarkdownText
+}
+
+view Main {
+  let chat = Chat()
+
+  ApplicationWindow {
+    width: 760
+    height: 600
+    visible: true
+    title: "Cute LLM chat — " + chat.currentModel
+    # Off-white app background — keeps the assistant bubbles (white)
+    # subtly distinguishable while staying out of the way of the
+    # text content.
+    color: "#fafaf9"
+
+    ColumnLayout {
+      anchors.fill: parent
+      anchors.margins: 18
+      spacing: 14
+
+      # Status header. The model name is the visual anchor (left,
+      # heaviest); status sits to the right with a small colored dot
+      # that flips between idle / streaming / error so the state is
+      # readable at a glance.
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 10
+        Label {
+          text: chat.currentModel
+          color: "#18181b"
+          font.pixelSize: 14
+          font.weight: Font.DemiBold
+        }
+        Rectangle {
+          implicitWidth: 6
+          implicitHeight: 6
+          radius: 3
+          color: if chat.isStreaming { "#f59e0b" } else { "#22c55e" }
+        }
+        Label {
+          text: chat.statusText
+          color: "#71717a"
+          font.pixelSize: 12
+        }
+        Item { Layout.fillWidth: true }
+        Label {
+          text: "via Ollama · " + chat.ollamaUrl()
+          color: "#a1a1aa"
+          font.pixelSize: 11
+        }
+      }
+
+      # Message feed. Bubbles are rendered with a 3-column row:
+      # left-spacer, bubble, right-spacer. User messages flip the
+      # spacer ratios so the bubble hugs the right edge; assistant
+      # messages stay on the left. This avoids QML's
+      # `anchors.X: undefined` JS-isms (which the Cute parser
+      # rejects) and keeps the layout reactive to width changes.
+      #
+      # Color scheme:
+      #   user      → iOS-blue solid bubble, white text
+      #   assistant → white bubble, zinc border, near-black text
+      ListView {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        spacing: 10
+        model: chat.messages
+        delegate: RowLayout {
+          width: ListView.view.width
+          spacing: 0
+          Item {
+            Layout.fillWidth: true
+            Layout.preferredWidth: if model.role == "user" { 140 } else { 0 }
+          }
+          Rectangle {
+            Layout.preferredWidth: bubbleColumn.implicitWidth + 28
+            Layout.maximumWidth: parent.width * 0.74
+            Layout.preferredHeight: bubbleColumn.implicitHeight + 20
+            style: BubbleBase
+            color: if model.role == "user" { "#0a84ff" } else { "#ffffff" }
+            border.color: if model.role == "user" { "#0a84ff" } else { "#e4e4e7" }
+            ColumnLayout {
+              id: bubbleColumn
+              anchors.fill: parent
+              anchors.margins: 12
+              spacing: 4
+              Label {
+                Layout.fillWidth: true
+                text: if model.role == "user" { "you" } else { "assistant" }
+                style: RoleLabel
+                color: if model.role == "user" { "#bfdbfe" } else { "#a1a1aa" }
+              }
+              # User text is plain (no need for code highlighting), so
+              # Label is enough. Assistant text goes through TextEdit
+              # so each bubble's QTextDocument is reachable from the
+              # `Component.onCompleted` hook, where we attach a
+              # CodeHighlighter via the Cute runtime helper. The
+              # highlighter colors fenced code blocks (keywords /
+              # strings / numbers / comments) inside the rendered
+              # markdown; non-code regions stay untouched.
+              if model.role == "user" {
+                Label {
+                  Layout.fillWidth: true
+                  text: model.content
+                  style: BubbleBody
+                  color: "#ffffff"
+                }
+              } else {
+                TextEdit {
+                  Layout.fillWidth: true
+                  text: model.content
+                  style: BubbleBody
+                  color: "#18181b"
+                  readOnly: true
+                  selectByMouse: true
+                  Component.onCompleted: chat.attachCodeHighlighter(this)
+                }
+              }
+            }
+          }
+          Item {
+            Layout.fillWidth: true
+            Layout.preferredWidth: if model.role == "user" { 0 } else { 140 }
+          }
+        }
+        # Auto-scroll to bottom when a new message appears or the
+        # streaming bubble grows. positionViewAtEnd is the QML idiom
+        # for "always show the freshest tail."
+        onCountChanged: positionViewAtEnd()
+      }
+
+      # Live typing bubble — only visible while streaming. Same
+      # silhouette as an assistant bubble (left-aligned, white) but
+      # tinted with a subtle amber accent that matches the streaming
+      # status dot above. Height auto-sizes from the inner Label.
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: draftColumn.implicitHeight + 20
+        Layout.maximumWidth: parent.width * 0.74
+        visible: chat.isStreaming
+        style: BubbleBase
+        color: "#fffbeb"
+        border.color: "#fcd34d"
+        ColumnLayout {
+          id: draftColumn
+          anchors.fill: parent
+          anchors.margins: 12
+          spacing: 4
+          Label {
+            text: "ASSISTANT · STREAMING"
+            style: RoleLabel
+            color: "#b45309"
+          }
+          Label {
+            Layout.fillWidth: true
+            text: if chat.currentDraft.length > 0 { chat.currentDraft } else { "…" }
+            style: BubbleBody
+            color: "#451a03"
+          }
+        }
+      }
+
+      # Input row. The TextField gets a subtle accent border on
+      # focus; the Send button is filled while enabled and dims to a
+      # neutral gray during streaming so the user reads the locked
+      # state without a separate spinner.
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 52
+        style: InputFrame
+        # `style: InputFrame` sets a neutral border; the focus-aware
+        # accent overlays it via direct `border.color:` after the
+        # splice (later assignments win on element merge).
+        border.color: if input.activeFocus { "#0a84ff" } else { "#e4e4e7" }
+        RowLayout {
+          anchors.fill: parent
+          anchors.leftMargin: 16
+          anchors.rightMargin: 8
+          anchors.topMargin: 6
+          anchors.bottomMargin: 6
+          spacing: 8
+          TextField {
+            id: input
+            Layout.fillWidth: true
+            placeholderText: "Ask anything…"
+            enabled: !chat.isStreaming
+            font.pixelSize: 14
+            # Explicit text colors — Basic style's defaults are too
+            # light against the white input background, so typed
+            # content comes out near-invisible. Near-black for the
+            # entry, muted zinc for the placeholder, iOS-blue for
+            # selection so the highlight matches the Send button.
+            color: "#18181b"
+            placeholderTextColor: "#a1a1aa"
+            selectionColor: "#0a84ff"
+            selectedTextColor: "#ffffff"
+            background: Rectangle { color: "transparent" }
+            onAccepted: {
+              chat.send(text)
+              text = ""
+            }
+          }
+          Button {
+            id: sendButton
+            text: if chat.isStreaming { "…" } else { "Send" }
+            enabled: !chat.isStreaming && input.text.length > 0
+            implicitWidth: 76
+            implicitHeight: 36
+            background: Rectangle {
+              radius: 10
+              color: if sendButton.enabled { "#0a84ff" } else { "#e4e4e7" }
+            }
+            contentItem: Label {
+              text: sendButton.text
+              color: if sendButton.enabled { "#ffffff" } else { "#a1a1aa" }
+              font.pixelSize: 13
+              font.weight: Font.DemiBold
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+            }
+            onClicked: {
+              chat.send(input.text)
+              input.text = ""
+            }
+          }
+        }
+      }
+    }
+  }
+}

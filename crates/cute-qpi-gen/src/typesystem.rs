@@ -195,6 +195,38 @@ pub struct ClassSpec {
     /// `AlignmentFlag.AlignLeft` → `Qt::AlignLeft`.
     #[serde(default)]
     pub cpp_namespace: Option<String>,
+
+    /// Manually-injected `signal` declarations for `kind = "object"`
+    /// classes. Each entry is the Cute-syntax body of one signal —
+    /// the declaration is emitted as `signal <entry>` in the .qpi.
+    /// Examples: `"readyRead"` (no params), `"downloadProgress(bytes: Int, total: Int)"`.
+    ///
+    /// Used to expose signals inherited from a base class that the
+    /// typesystem can't follow with libclang because the binding
+    /// declares a faux `super_name` for type-check convenience. The
+    /// canonical case is QNetworkReply, whose real C++ super is
+    /// QIODevice but whose binding pretends QObject so that signal
+    /// subscription resolves against the bound parent.
+    ///
+    /// Emitted after the AST-derived signals so the source-order
+    /// surface stays first; manually injected entries appear at the
+    /// bottom of the signal list with a one-line comment marker.
+    #[serde(default)]
+    pub extra_signals: Vec<String>,
+
+    /// Manually-injected `fn` declarations for `kind = "object"` /
+    /// `kind = "value"` classes. Each entry is the Cute-syntax body of
+    /// one method — the declaration is emitted as `fn <entry>` in the
+    /// .qpi. Examples: `"bytesAvailable Int"`, `"read(maxlen: Int) QByteArray"`.
+    ///
+    /// Same purpose as [`Self::extra_signals`]: surface base-class
+    /// methods that libclang can't see because the walker doesn't
+    /// descend into the inheritance chain. Most QIODevice users
+    /// don't need this — method calls soft-pass at the type checker —
+    /// but it's available for cases where the explicit declaration
+    /// is preferred (overload disambiguation, IDE / cute-lsp hover).
+    #[serde(default)]
+    pub extra_methods: Vec<String>,
 }
 
 impl TypeSystem {

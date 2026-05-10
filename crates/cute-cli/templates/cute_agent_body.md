@@ -239,7 +239,8 @@ Asserts available out of the box: `assert_eq(actual, expected)`,
 
 | Cute | Lifetime | Generated C++ |
 |---|---|---|
-| `class X { ... }` (default) | Qt parent-tree (auto `new T(this)` in class methods) | raw `T*` |
+| `class X { ... }` (default super = `QObject`) | Qt parent-tree (auto `new T(this)` in class methods) | raw `T*` |
+| `class X < QSomething { ... }` (explicit super) | Same as above, but inherits from any QObject-derived Qt class (`QPlainTextEdit`, `QAbstractListModel`, …) | `class X : public QSomething` + Q_OBJECT |
 | `arc X { ... }` | Intrusive ARC (final, no signals/slots) | `class X : public ::cute::ArcBase` + `cute::Arc<T>` |
 | `T?` | Auto-nulls when target dies | `QPointer<T>` |
 | `extern value Foo { ... }` (binding-only) | Stack value | bare `Foo` (e.g., `QPoint`, `QColor`) |
@@ -247,6 +248,8 @@ Asserts available out of the box: `assert_eq(actual, expected)`,
 | `Slice<T>` | shared-pointer keepalive — non-dangling array view | `cute::Slice<T>` (`arr[a..b]` lowers to `make_slice`) |
 
 `T.new(args)` inside a class method auto-injects `this` as Qt parent. Outside, the caller must explicitly parent or risk a leak.
+
+`class X < QPlainTextEdit { let hl : CodeHighlighter = CodeHighlighter.new(self) }` is a working pattern for "subclass a Qt widget, own a helper as a member field" — used by `examples/code_highlight`. The Qt umbrella header from the build mode (`<QtWidgets>` for widget mode, `<QtQuick>` for QML) reaches the super class without manual includes.
 
 ## Type system — Qt is the standard library
 
@@ -336,9 +339,15 @@ For **user generic classes** the splice path can only carry one definition per m
 | `qml_app(view: Main)` (auto-synthesized when a `view` exists) | `QGuiApplication` + `QQmlApplicationEngine` + qrc-bundled QML | QtQuick / Material / Plasma 6 / Kirigami GUI |
 | `widget_app(window: Main)` (auto-synthesized when a `widget` exists with a Qt root) | `QApplication` + `Main w; w.show();` | QtWidgets / OS-native GUI |
 | `gpu_app(window: Main, theme: light)` | `cute::ui::App` + `cute::ui::Window` (QRhi + Canvas Painter) | GPU-accelerated UI without QML or QtWidgets — see GPU section below |
-| `server_app { ... }` | `QCoreApplication` + body + `app.exec()` | HTTP servers, signal/timer-driven services |
+| `server_app { ... }` | `QCoreApplication` + body + `app.exec()` | HTTP servers, signal/timer-driven services, **streaming HTTP clients** (`QNetworkAccessManager` + `readyRead` chunks) — see `examples/llm_chat` |
 | `cli_app { ... }` | `QCoreApplication` + body + `return 0;` (sync body) **OR** body lifted into `QFuture<void>` coroutine + `app.exec()` (when body uses `await`) | CLI tools — async-aware |
 | (none) | bare `int main(...)` | batch processing |
+
+`Qt6::Network` is auto-linked when the generated C++ references
+`QNetworkAccessManager` / `QNetworkRequest` / `QNetworkReply` — no
+`cute.toml [cmake]` entry is needed for the typical HTTP client.
+Same for `Qt6::Gui` + `Qt6::Widgets` when a `cute::CodeHighlighter`
+shows up.
 
 ## QML view body sugar
 

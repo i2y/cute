@@ -611,17 +611,17 @@ fn emit_source(info: &ClassInfo) -> String {
 }
 
 fn emit_signal_body(s: &mut String, cls: &str, sig: &SignalInfo, idx: usize) {
+    // Param shape must match the header's declaration verbatim — a
+    // mismatched `const T&` vs `T` is a different overload at link
+    // time. The header (cute-codegen `render_param_list`) emits
+    // every param by value, so we mirror that here even for types
+    // like QString where `const T&` would be the conventional Qt MOC
+    // shape. Signals are typically called once with a single arg, so
+    // copying a value into the activate path is negligible.
     let params = sig
         .params
         .iter()
-        .map(|p| {
-            // Pass QString by const-ref; primitives by value.
-            if p.cpp_type == "::cute::String" || p.cpp_type == "QString" {
-                format!("const {}& {}", p.cpp_type, p.name)
-            } else {
-                format!("{} {}", p.cpp_type, p.name)
-            }
-        })
+        .map(|p| format!("{} {}", p.cpp_type, p.name))
         .collect::<Vec<_>>()
         .join(", ");
     let _ = writeln!(s, "// SIGNAL {idx}");

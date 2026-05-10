@@ -1,0 +1,103 @@
+# CLI smoke for the chat-app's Ollama integration. Mirrors what
+# `Chat.send(text)` does inside `llm_chat.cute` — POST a single user
+# turn, parse the streaming NDJSON response, print each token's
+# content to stdout. Lets us verify the streaming + JSON pipeline
+# without driving the QML UI.
+#
+# Run:
+#   ollama serve & ; ollama pull qwen2.5-coder:7b
+#   cute build examples/llm_chat/ollama_smoke.cute
+#   ./ollama_smoke                                      # default prompt
+#   ./ollama_smoke "say hi in 4 words"
+#   OLLAMA_HOST=http://192.168.1.50:11434 ./ollama_smoke
+#
+# Output looks like:
+#   POST http://localhost:11434/api/chat (model=qwen2.5-coder:7b)
+#   prompt: say hi in 4 words
+#   ---
+#   Hello from the digital realm.
+#   ---
+#   [done] 7 tokens, total_duration=12.4ms
+
+# `jsonString(...)` is shared via `json_util.cute` (cute.toml
+# [sources]). Same escape rules as the chat — keeps both
+# entrypoints encoding strings identically against Ollama.
+
+fn main(args: List) {
+  server_app {
+    let env = QProcessEnvironment.systemEnvironment()
+    let host = env.value("OLLAMA_HOST", "http://localhost:11434")
+    let model = env.value("OLLAMA_MODEL", "qwen2.5-coder:7b")
+    let prompt = if args.size() > 1 {
+      args.at(1)
+    } else {
+      "say hi in 4 words"
+    }
+
+    let manager = QNetworkAccessManager.new()
+    let req = QNetworkRequest.new()
+    req.setUrl(QUrl.new(host + "/api/chat"))
+    req.setRawHeader("Content-Type".toUtf8(), "application/json".toUtf8())
+
+    let bodyStr = "{\"model\":\"" + model + "\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":" + jsonString(prompt) + "}]}"
+    let body : QByteArray = bodyStr.toUtf8()
+    let reply = manager.post(req, body)
+
+    var buffer : QByteArray = "".toUtf8()
+    var tokens : Int = 0
+    let nl = "\n".toUtf8()
+
+    println("POST #{host}/api/chat (model=#{model})")
+    println("prompt: #{prompt}")
+    println("---")
+
+    reply.readyRead.connect {
+      buffer.append(reply.readAll())
+      var idx = buffer.indexOf(nl)
+      while idx >= 0 {
+        let line = buffer.left(idx)
+        buffer = buffer.mid(idx + 1)
+        if line.size() > 0 {
+          let doc = QJsonDocument.fromJson(line)
+          if doc.isObject() {
+            let obj = doc.object()
+            let msg = obj.value("message").toObject()
+            let token = msg.value("content").toString()
+            if token != "" {
+              tokens = tokens + 1
+              # Cute's `println` writes one line per call (no
+              # `print` builtin yet), so each token arrives on its
+              # own line. Visually less smooth than a TTY-style
+              # stream, but proves the chunks are flowing in order
+              # and avoids buffering the whole response.
+              println("[token #{tokens}] #{token}")
+            }
+          }
+        }
+        idx = buffer.indexOf(nl)
+      }
+    }
+
+    reply.finished.connect {
+      buffer.append(reply.readAll())
+      if buffer.size() > 0 {
+        let doc = QJsonDocument.fromJson(buffer)
+        if doc.isObject() {
+          let tail = doc.object().value("message").toObject().value("content").toString()
+          if tail != "" {
+            tokens = tokens + 1
+            println("[token #{tokens}] #{tail}")
+          }
+        }
+      }
+      println("---")
+      let code = reply.error()
+      if code == 0 {
+        println("[done] #{tokens} tokens")
+      } else {
+        println("[error] code=#{code}: #{reply.errorString()}")
+      }
+      QCoreApplication.quit()
+    }
+  }
+}

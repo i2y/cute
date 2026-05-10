@@ -1,0 +1,93 @@
+# NDJSON streaming demo. Reads `{...}\n`-terminated JSON records as
+# they arrive on a chunked HTTP response, parses each one as a
+# QJsonDocument, and prints a one-line summary per record.
+#
+# Used as the streaming foundation for the Ollama chat client —
+# Ollama's `/api/chat` returns one JSON object per token delta,
+# separated by newlines (NDJSON aka JSON Lines).
+#
+# Run:
+#   cute build examples/llm_chat/ndjson_stream.cute
+#   ./ndjson_stream                                       # → httpbin.org/stream/3
+#   ./ndjson_stream http://localhost:11434/api/tags       # any NDJSON
+
+class NdjsonStream {
+  pub signal received(obj: QJsonObject)
+  pub signal streamFinished
+  pub signal parseError(msg: String)
+
+  # Buffer of bytes received but not yet split on a newline. Each
+  # `readyRead` chunk gets appended; each successful split chops the
+  # prefix. Member field (not method local) so the connect lambda's
+  # value-capture mode keeps mutations across invocations.
+  var buffer : QByteArray = "".toUtf8()
+
+  pub fn attach(reply: QNetworkReply) {
+    reply.readyRead.connect {
+      buffer.append(reply.readAll())
+      drain()
+    }
+    reply.finished.connect {
+      buffer.append(reply.readAll())
+      drain()
+      emit streamFinished()
+    }
+  }
+
+  fn drain {
+    let nl = "\n".toUtf8()
+    var idx = buffer.indexOf(nl)
+    while idx >= 0 {
+      let line = buffer.left(idx)
+      buffer = buffer.mid(idx + 1)
+      processLine(line)
+      idx = buffer.indexOf(nl)
+    }
+  }
+
+  fn processLine(line: QByteArray) {
+    if line.size() == 0 {
+      return
+    }
+    let doc = QJsonDocument.fromJson(line)
+    if doc.isNull() {
+      emit parseError("malformed JSON line (#{line.size()} bytes)")
+      return
+    }
+    if doc.isObject() {
+      emit received(doc.object())
+    }
+  }
+}
+
+fn main(args: List) {
+  server_app {
+    let manager = QNetworkAccessManager.new()
+    let target = if args.size() > 1 {
+      args.at(1)
+    } else {
+      "http://httpbin.org/stream/3"
+    }
+    let req = QNetworkRequest.new()
+    req.setUrl(QUrl.new(target))
+    let reply = manager.get(req)
+
+    let stream = NdjsonStream.new()
+    var count : Int = 0
+
+    stream.received.connect { |obj|
+      count = count + 1
+      println("[record #{count}] keys=#{obj.size()}")
+    }
+    stream.streamFinished.connect {
+      println("[done] #{count} records parsed")
+      QCoreApplication.quit()
+    }
+    stream.parseError.connect { |msg|
+      println("[error] #{msg}")
+    }
+
+    stream.attach(reply)
+    println("requesting #{target}")
+  }
+}

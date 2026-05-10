@@ -70,6 +70,8 @@ pub fn collect_one_off(
         comment: None,
         flags_of: None,
         cpp_namespace: None,
+        extra_signals: Vec::new(),
+        extra_methods: Vec::new(),
     };
     let ts = TypeSystem {
         vars: BTreeMap::new(),

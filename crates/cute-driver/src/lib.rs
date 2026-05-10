@@ -1601,6 +1601,20 @@ fn compile_binary_with_mode(
             "#include <QtHttpServer>\n#include <QtNetwork>\n",
         );
     }
+    // Mode-orthogonal Qt extras (e.g. `Qt6::Network` when a QML or
+    // CLI app pulls in QNetworkAccessManager). Detected from the
+    // emitted source so the user doesn't need a cute.toml entry for
+    // each Qt module their code happens to touch.
+    // Scan BOTH the .cpp source and the .h header — inline class
+    // member initializers (`CodeHighlighter* m_hl = new
+    // CodeHighlighter(this)` for `let` fields on a class body)
+    // live in the header rather than the source, so a cpp-only
+    // scan would miss them and skip the include / link rewrite.
+    let combined_for_extras = format!("{}{}", emit.source, emit.header);
+    let build_extras = detect_build_extras(&combined_for_extras);
+    for include_line in &build_extras.extra_includes {
+        prepend_after_pragma_once(&mut emit.header, include_line);
+    }
 
     let gen_dir = work.join("generated");
     std::fs::create_dir_all(&gen_dir)?;
@@ -1659,7 +1673,14 @@ fn compile_binary_with_mode(
     } else {
         None
     };
-    let cmake_text = generate_cmake(&stem, mode, &manifest, pch, bundle_cfg.as_ref());
+    let cmake_text = generate_cmake(
+        &stem,
+        mode,
+        &manifest,
+        pch,
+        bundle_cfg.as_ref(),
+        &build_extras,
+    );
     write_if_changed(&work.join("CMakeLists.txt"), &cmake_text)?;
     // Bundle-mode auxiliaries: Info.plist + entitlements XML, both
     // referenced by the generated CMakeLists. They live next to
@@ -2192,6 +2213,9 @@ pub fn detect_mode(cpp: &str) -> BuildMode {
         // app.exec() event loop. Detected from any QHttpServer mention,
         // not just `server_app { ... }`, so a future free-standing
         // intrinsic-less HTTP setup still gets the right link line.
+        // QtNetwork-only use (QNetworkAccessManager from a QML / CLI
+        // app) takes a different path: see `detect_build_extras`,
+        // which adds Qt6::Network to whichever mode is detected.
         BuildMode::Server
     } else if cpp.contains("QCoreApplication") {
         BuildMode::Cli
@@ -2232,6 +2256,7 @@ const CUTE_GENERIC_H: &str = include_str!("../../../runtime/cpp/cute_generic.h")
 const CUTE_FUNCTION_H: &str = include_str!("../../../runtime/cpp/cute_function.h");
 const CUTE_MODEL_H: &str = include_str!("../../../runtime/cpp/cute_model.h");
 const CUTE_KI18N_H: &str = include_str!("../../../runtime/cpp/cute_ki18n.h");
+const CUTE_CODE_HIGHLIGHTER_H: &str = include_str!("../../../runtime/cpp/cute_code_highlighter.h");
 
 fn write_runtime_headers_if_changed(dir: &Path) -> std::io::Result<()> {
     write_if_changed(&dir.join("cute_arc.h"), CUTE_ARC_H)?;
@@ -2246,6 +2271,10 @@ fn write_runtime_headers_if_changed(dir: &Path) -> std::io::Result<()> {
     write_if_changed(&dir.join("cute_function.h"), CUTE_FUNCTION_H)?;
     write_if_changed(&dir.join("cute_model.h"), CUTE_MODEL_H)?;
     write_if_changed(&dir.join("cute_ki18n.h"), CUTE_KI18N_H)?;
+    write_if_changed(
+        &dir.join("cute_code_highlighter.h"),
+        CUTE_CODE_HIGHLIGHTER_H,
+    )?;
     Ok(())
 }
 
@@ -2747,9 +2776,26 @@ fn generate_cmake(
     manifest: &Manifest,
     pch: bool,
     bundle: Option<&BundleConfig>,
+    extras: &BuildExtras,
 ) -> String {
-    let components = qt6_components_for_mode(mode);
-    let libs = qt6_link_libs_for_mode(mode);
+    // Mode-derived base components/libs, then append source-detected
+    // extras (e.g. `Network` when QNetworkAccessManager is in the
+    // generated cpp). De-dup by string equality so a Server-mode
+    // build (which already lists `Network`) doesn't repeat it.
+    let mut components_v: Vec<&str> = qt6_components_for_mode(mode).split_whitespace().collect();
+    for c in &extras.qt6_components {
+        if !components_v.contains(c) {
+            components_v.push(c);
+        }
+    }
+    let components = components_v.join(" ");
+    let mut libs_v: Vec<&str> = qt6_link_libs_for_mode(mode).split_whitespace().collect();
+    for l in &extras.qt6_link_libs {
+        if !libs_v.contains(l) {
+            libs_v.push(l);
+        }
+    }
+    let libs = libs_v.join(" ");
     let sources_qrc = sources_qrc_for_mode(mode);
     let qrc_line = if sources_qrc.is_empty() {
         String::new()
@@ -2818,7 +2864,12 @@ fn generate_cmake(
     let pch_block = if !pch {
         String::new()
     } else {
-        let pch_headers = pch_headers_for_mode(mode);
+        let mut pch_headers = pch_headers_for_mode(mode);
+        for h in &extras.pch_headers {
+            if !pch_headers.contains(h) {
+                pch_headers.push(h);
+            }
+        }
         let lines: Vec<String> = pch_headers.iter().map(|h| format!("    \"{h}\"")).collect();
         format!(
             "\n# Precompile the Qt umbrella headers — they dominate compile\n\
@@ -2956,6 +3007,71 @@ fn render_bundle_target_block(
 /// every Qt module the link line pulls in gets its umbrella header
 /// in the PCH. Order is most-fundamental-first (QtCore before
 /// QtWidgets) so the PCH compiler sees a sensible dependency order.
+/// Optional Qt6 surface area inferred from the generated C++ that
+/// the build mode alone doesn't pin. The canonical case is
+/// QtNetwork: a QML or CLI app that uses `QNetworkAccessManager`
+/// needs `Qt6::Network` linked, but neither the QML app intrinsic
+/// nor `cli_app { ... }` reveals that — it shows up in the source
+/// only after codegen has expanded the user's `manager.get(req)`.
+///
+/// Detected via substring scan over the emitted .cpp. Each entry is
+/// purely additive: we never *replace* the mode-derived components,
+/// only append. Idempotent — listing a class twice in the source
+/// still produces one component entry.
+#[derive(Default, Debug, Clone)]
+struct BuildExtras {
+    /// Extra Qt6 component names (without the `Qt6::` prefix) to feed
+    /// into `find_package(Qt6 REQUIRED COMPONENTS ...)`.
+    qt6_components: Vec<&'static str>,
+    /// Extra `Qt6::*` link entries for `target_link_libraries`.
+    qt6_link_libs: Vec<&'static str>,
+    /// Extra umbrella headers to add to the precompiled-header set.
+    pch_headers: Vec<&'static str>,
+    /// Extra `#include` lines to inject after `#pragma once` in the
+    /// generated .h. Needed because the cute-codegen output references
+    /// Qt classes by bare name (`QNetworkReply*`) without including
+    /// the umbrella header itself.
+    extra_includes: Vec<&'static str>,
+}
+
+fn detect_build_extras(cpp: &str) -> BuildExtras {
+    let mut out = BuildExtras::default();
+    // QtNetwork — `QNetworkAccessManager`, `QNetworkRequest`,
+    // `QNetworkReply`, `QSslSocket` etc. all live behind the QtNetwork
+    // umbrella. Trigger on the manager class because that's the
+    // entry point for every client; if a user reaches `QNetworkReply`
+    // they almost certainly have a `QNetworkAccessManager` in scope
+    // first.
+    if cpp.contains("QNetworkAccessManager")
+        || cpp.contains("QNetworkRequest")
+        || cpp.contains("QNetworkReply")
+    {
+        out.qt6_components.push("Network");
+        out.qt6_link_libs.push("Qt6::Network");
+        out.pch_headers.push("<QtNetwork>");
+        out.extra_includes.push("#include <QtNetwork>\n");
+    }
+    // `cute::CodeHighlighter` — the runtime helper that wraps
+    // QSyntaxHighlighter with a regex-rule API. Trigger on
+    // `new CodeHighlighter(` so a user class accidentally named
+    // `CodeHighlighter` doesn't pull in the header. The class
+    // sits in QtGui (for QSyntaxHighlighter / QTextDocument) but
+    // its convenience constructors take QPlainTextEdit / QTextEdit
+    // (QtWidgets) too, so we pull Widgets unconditionally. QML /
+    // CuteUi consumers can still use the QTextDocument-only ctor
+    // — they'll just get an unused QtWidgets link entry.
+    if cpp.contains("new CodeHighlighter(") || cpp.contains("CodeHighlighter::") {
+        out.qt6_components.push("Gui");
+        out.qt6_link_libs.push("Qt6::Gui");
+        out.qt6_components.push("Widgets");
+        out.qt6_link_libs.push("Qt6::Widgets");
+        out.pch_headers.push("<QSyntaxHighlighter>");
+        out.extra_includes
+            .push("#include \"cute_code_highlighter.h\"\n");
+    }
+    out
+}
+
 fn pch_headers_for_mode(mode: BuildMode) -> Vec<&'static str> {
     match mode {
         BuildMode::Qml => vec!["<QtCore>", "<QtGui>", "<QtQml>", "<QtQuick>"],
@@ -3102,7 +3218,14 @@ mod tests {
 
     #[test]
     fn cmake_widgets_links_qt_widgets_only() {
-        let s = generate_cmake("demo", BuildMode::Widgets, &Manifest::default(), true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Widgets,
+            &Manifest::default(),
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(s.contains("Qt6::Widgets"), "expected Qt6::Widgets:\n{}", s);
         assert!(
             !s.contains("Qt6::Quick"),
@@ -3113,7 +3236,14 @@ mod tests {
 
     #[test]
     fn cmake_widgets_includes_qt_pch() {
-        let s = generate_cmake("demo", BuildMode::Widgets, &Manifest::default(), true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Widgets,
+            &Manifest::default(),
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(
             s.contains("target_precompile_headers(demo PRIVATE"),
             "expected target_precompile_headers in widgets mode:\n{s}"
@@ -3130,7 +3260,14 @@ mod tests {
 
     #[test]
     fn cmake_qml_includes_quick_pch() {
-        let s = generate_cmake("demo", BuildMode::Qml, &Manifest::default(), true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Qml,
+            &Manifest::default(),
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(
             s.contains("\"<QtQuick>\"") && s.contains("\"<QtQml>\""),
             "qml PCH should include QtQuick and QtQml:\n{s}"
@@ -3143,7 +3280,14 @@ mod tests {
 
     #[test]
     fn cmake_server_includes_httpserver_pch() {
-        let s = generate_cmake("demo", BuildMode::Server, &Manifest::default(), true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Server,
+            &Manifest::default(),
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(
             s.contains("\"<QtHttpServer>\"") && s.contains("\"<QtNetwork>\""),
             "server PCH should include QtHttpServer + QtNetwork:\n{s}"
@@ -3158,10 +3302,46 @@ mod tests {
             &Manifest::default(),
             false,
             None,
+            &BuildExtras::default(),
         );
         assert!(
             !s.contains("targetPrecompileHeaders"),
             "pch=false should suppress PCH:\n{s}"
+        );
+    }
+
+    #[test]
+    fn cmake_qml_with_qnetwork_pulls_qt6_network() {
+        // QML mode + QNetworkAccessManager in the source → Qt6::Network
+        // gets appended to components/libs/PCH without flipping mode
+        // to Server (QML apps shouldn't pull Qt6::HttpServer just to
+        // get a HTTP client).
+        let extras =
+            detect_build_extras("auto m = new QNetworkAccessManager(); m->get(QNetworkRequest());");
+        assert_eq!(extras.qt6_components, vec!["Network"]);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Qml,
+            &Manifest::default(),
+            true,
+            None,
+            &extras,
+        );
+        assert!(
+            s.contains("REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Network"),
+            "Network should append after the QML base components:\n{s}"
+        );
+        assert!(
+            s.contains("Qt6::Quick Qt6::QuickControls2 Qt6::Network"),
+            "Qt6::Network should follow the QML link line:\n{s}"
+        );
+        assert!(
+            !s.contains("Qt6::HttpServer"),
+            "QtNetwork detection should NOT pull HttpServer:\n{s}"
+        );
+        assert!(
+            s.contains("\"<QtNetwork>\""),
+            "PCH should pick up QtNetwork:\n{s}"
         );
     }
 
@@ -3174,7 +3354,14 @@ mod tests {
             },
             ..Default::default()
         };
-        let s = generate_cmake("demo", BuildMode::Widgets, &manifest, true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Widgets,
+            &manifest,
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(
             s.contains("find_package(Qt6 COMPONENTS Charts REQUIRED)"),
             "missing extra find_package:\n{}",
@@ -3228,7 +3415,14 @@ mod tests {
             },
             ..Default::default()
         };
-        let s = generate_cmake("demo", BuildMode::Cli, &manifest, true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Cli,
+            &manifest,
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(
             s.contains("find_package(LibCounter REQUIRED)"),
             "missing auto-generated find_package for cute_libraries dep:\n{s}"
@@ -3294,6 +3488,7 @@ mod tests {
             &Manifest::default(),
             true,
             Some(&cfg),
+            &BuildExtras::default(),
         );
         assert!(
             s.contains("MACOSX_BUNDLE TRUE"),
@@ -3378,7 +3573,14 @@ mod tests {
 
     #[test]
     fn cmake_non_bundle_keeps_macosx_bundle_false() {
-        let s = generate_cmake("demo", BuildMode::Cli, &Manifest::default(), true, None);
+        let s = generate_cmake(
+            "demo",
+            BuildMode::Cli,
+            &Manifest::default(),
+            true,
+            None,
+            &BuildExtras::default(),
+        );
         assert!(
             s.contains("MACOSX_BUNDLE FALSE"),
             "CLI mode should keep MACOSX_BUNDLE FALSE:\n{s}"

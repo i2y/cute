@@ -175,7 +175,7 @@ extern value QLineF {
 
 extern value QDate {
   fn isValid Bool
-  fn isValid(y: Int, m: Int, d: Int) Bool
+  static fn isValid(y: Int, m: Int, d: Int) Bool
   fn isNull Bool
   fn year Int
   fn month Int
@@ -191,11 +191,11 @@ extern value QDate {
   fn addMonths(months: Int) QDate
   fn addYears(years: Int) QDate
   fn daysTo(other: QDate) Int
-  fn currentDate QDate
-  fn fromString(s: String) QDate
-  fn fromString(s: String, fmt: Int) QDate
-  fn fromString(s: String, fmt: String) QDate
-  fn fromString(s: String, fmt: String, baseYear: Int) QDate
+  static fn currentDate QDate
+  static fn fromString(s: String) QDate
+  static fn fromString(s: String, fmt: Int) QDate
+  static fn fromString(s: String, fmt: String) QDate
+  static fn fromString(s: String, fmt: String, baseYear: Int) QDate
 }
 
 extern value QDateTime {
@@ -214,17 +214,17 @@ extern value QDateTime {
   fn addMSecs(msecs: Int) QDateTime
   fn secsTo(other: QDateTime) Int
   fn msecsTo(other: QDateTime) Int
-  fn currentDateTime QDateTime
-  fn fromString(s: String) QDateTime
-  fn fromString(s: String, fmt: Int) QDateTime
-  fn fromString(s: String, fmt: String) QDateTime
-  fn fromString(s: String, fmt: String, baseYear: Int) QDateTime
-  fn fromMSecsSinceEpoch(msecs: Int, spec: Int) QDateTime
-  fn fromMSecsSinceEpoch(msecs: Int, spec: Int, offsetFromUtc: Int) QDateTime
-  fn fromMSecsSinceEpoch(msecs: Int) QDateTime
-  fn fromSecsSinceEpoch(secs: Int, spec: Int) QDateTime
-  fn fromSecsSinceEpoch(secs: Int, spec: Int, offsetFromUtc: Int) QDateTime
-  fn fromSecsSinceEpoch(secs: Int) QDateTime
+  static fn currentDateTime QDateTime
+  static fn fromString(s: String) QDateTime
+  static fn fromString(s: String, fmt: Int) QDateTime
+  static fn fromString(s: String, fmt: String) QDateTime
+  static fn fromString(s: String, fmt: String, baseYear: Int) QDateTime
+  static fn fromMSecsSinceEpoch(msecs: Int, spec: Int) QDateTime
+  static fn fromMSecsSinceEpoch(msecs: Int, spec: Int, offsetFromUtc: Int) QDateTime
+  static fn fromMSecsSinceEpoch(msecs: Int) QDateTime
+  static fn fromSecsSinceEpoch(secs: Int, spec: Int) QDateTime
+  static fn fromSecsSinceEpoch(secs: Int, spec: Int, offsetFromUtc: Int) QDateTime
+  static fn fromSecsSinceEpoch(secs: Int) QDateTime
 }
 
 extern value QColor {
@@ -278,5 +278,5 @@ extern value QUrl {
   fn setScheme(scheme: String)
   fn setQuery(query: String)
   fn setQuery(query: String, mode: Int)
-  fn fromLocalFile(path: String) QUrl
+  static fn fromLocalFile(path: String) QUrl
 }
