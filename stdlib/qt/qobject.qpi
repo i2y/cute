@@ -25,4 +25,13 @@ class QObject {
   fn blockSignals(block: Bool) Bool
   fn signalsBlocked Bool
   fn thread QThread
+
+  # Placeholders so `suggest_close_method` finds an exact match on the
+  # signal-protocol names and stays quiet on `obj.connect(...)` typos.
+  # The actual `obj.signal.connect { ... }` shape routes through
+  # `Type::SignalRef` in the type checker and through
+  # `try_emit_signal_(dis)connect` in codegen — neither path touches
+  # these stubs.
+  fn connect Bool
+  fn disconnect Bool
 }

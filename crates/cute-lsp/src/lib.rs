@@ -1239,6 +1239,9 @@ fn class_name_of(ty: &Type) -> Option<String> {
         Type::Class(name) | Type::External(name) => Some(name.clone()),
         Type::Nullable(inner) => class_name_of(inner),
         Type::Generic { base, .. } => Some(base.clone()),
+        // `obj.signal` hover navigates to the declaring class (the one
+        // returned by `lookup_signal`'s super-class chain walk).
+        Type::SignalRef { class, .. } => Some(class.clone()),
         _ => None,
     }
 }

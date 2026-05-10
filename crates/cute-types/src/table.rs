@@ -853,13 +853,17 @@ impl ProgramTable {
         substitute_vars(t, &map)
     }
 
-    /// Same chain walk for signals (parameter list).
-    pub fn lookup_signal(&self, class_name: &str, signal: &str) -> Option<&Vec<Type>> {
+    /// Same chain walk for signals. Returns `(declaring_class, params)`
+    /// so callers can carry the **declaring** class name (the one whose
+    /// `signals` table actually held the entry) instead of the receiver
+    /// class — keeps `Type::SignalRef` equality stable across subclass
+    /// receivers.
+    pub fn lookup_signal(&self, class_name: &str, signal: &str) -> Option<(String, &Vec<Type>)> {
         let mut current = class_name.to_string();
         loop {
             let entry = self.classes.get(&current)?;
             if let Some(v) = entry.signals.get(signal) {
-                return Some(v);
+                return Some((current, v));
             }
             current = entry.super_class.as_ref()?.clone();
         }

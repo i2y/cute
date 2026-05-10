@@ -323,6 +323,11 @@ pub fn cute_type_to_cpp(t: &cute_types::ty::Type, ctx: &TypeCtx<'_>) -> String {
             format!("std::function<{}({ps})>", cute_type_to_cpp(ret, ctx))
         }
         Type::Sym => "QByteArray".to_string(),
+        // SignalRef never reaches codegen: the `obj.signal.(dis)connect`
+        // shape is rewritten earlier via try_emit_signal_(dis)connect.
+        // Defensive: render as `void` so accidental reaches don't
+        // generate well-formed but wrong template arguments.
+        Type::SignalRef { .. } => "void".to_string(),
         Type::Var(_) | Type::Error | Type::Unknown => "auto".to_string(),
     }
 }
@@ -370,7 +375,9 @@ fn synth_type_expr(t: &cute_types::ty::Type) -> TypeExpr {
             },
             span: blank,
         },
-        Type::Sym | Type::Var(_) | Type::Error | Type::Unknown => named("Void", vec![]),
+        Type::Sym | Type::SignalRef { .. } | Type::Var(_) | Type::Error | Type::Unknown => {
+            named("Void", vec![])
+        }
     }
 }
 
